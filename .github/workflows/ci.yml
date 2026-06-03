@@ -15,8 +15,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libavcodec-dev libavformat-dev \
-            libavutil-dev libswscale-dev libswresample-dev libspdlog-dev \
-            nlohmann-json3-dev libyaml-cpp-dev libvips-dev libtesseract-dev \
+            libavutil-dev libswscale-dev libswresample-dev \
+            nlohmann-json3-dev libvips-dev libtesseract-dev \
             libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git wget
       - name: Install Python dependencies
         run: pip3 install onnx numpy protobuf
@@ -54,8 +54,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake clang libavcodec-dev libavformat-dev \
-            libavutil-dev libswscale-dev libswresample-dev libspdlog-dev \
-            nlohmann-json3-dev libyaml-cpp-dev libvips-dev libtesseract-dev \
+            libavutil-dev libswscale-dev libswresample-dev \
+            nlohmann-json3-dev libvips-dev libtesseract-dev \
             libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git wget
       - name: Install Python dependencies
         run: pip3 install onnx numpy protobuf
@@ -88,8 +88,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libavcodec-dev libavformat-dev \
-            libavutil-dev libswscale-dev libswresample-dev libspdlog-dev \
-            nlohmann-json3-dev libyaml-cpp-dev libtesseract-dev libleptonica-dev \
+            libavutil-dev libswscale-dev libswresample-dev \
+            nlohmann-json3-dev libtesseract-dev libleptonica-dev \
             libgtest-dev python3-pip git wget
       - name: Install Python dependencies
         run: pip3 install onnx numpy protobuf
@@ -108,13 +108,13 @@ jobs:
       - name: Setup custom dependencies
         run: scripts/ci-setup-deps.sh
       - name: Configure ASan
-        run: cmake -B build -DENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -B build -DENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_BENCHMARKS=OFF
       - name: Build ASan
         run: cmake --build build --parallel $(nproc)
       - name: Test ASan
         run: ctest --test-dir build --output-on-failure
       - name: Configure UBSan
-        run: cmake -B build_ub -DENABLE_UBSAN=ON -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -B build_ub -DENABLE_UBSAN=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_BENCHMARKS=OFF
       - name: Build UBSan
         run: cmake --build build_ub --parallel $(nproc)
       - name: Test UBSan
