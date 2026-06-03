@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <video2vec/ffmpeg/demuxer.hpp>
-#include <video2vec/ffmpeg/decoder.hpp>
+
 #include <video2vec/vision/frame_selector.hpp>
 #include <video2vec/vision/patch_extractor.hpp>
 #include <video2vec/flatbuffers/packager.hpp>
