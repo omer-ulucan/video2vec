@@ -11,13 +11,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libavcodec-dev libavformat-dev \
             libavutil-dev libswscale-dev libswresample-dev libspdlog-dev \
             nlohmann-json3-dev libyaml-cpp-dev libvips-dev libtesseract-dev \
-            libleptonica-dev libgtest-dev libbenchmark-dev
+            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git wget
+      - name: Cache custom dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps/whisper-build
+            deps/whisper-src
+            deps/onnxruntime-linux-x64-1.18.0
+            deps/tesseract-5.5.2
+            deps/leptonica-build
+            deps/leptonica-1.87.0
+            tests/models
+          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/ci-setup-deps.sh') }}
+      - name: Setup custom dependencies
+        run: scripts/ci-setup-deps.sh
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
       - name: Build
@@ -33,13 +47,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake clang libavcodec-dev libavformat-dev \
             libavutil-dev libswscale-dev libswresample-dev libspdlog-dev \
             nlohmann-json3-dev libyaml-cpp-dev libvips-dev libtesseract-dev \
-            libleptonica-dev libgtest-dev libbenchmark-dev
+            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git wget
+      - name: Cache custom dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps/whisper-build
+            deps/whisper-src
+            deps/onnxruntime-linux-x64-1.18.0
+            deps/tesseract-5.5.2
+            deps/leptonica-build
+            deps/leptonica-1.87.0
+            tests/models
+          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/ci-setup-deps.sh') }}
+      - name: Setup custom dependencies
+        run: scripts/ci-setup-deps.sh
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
       - name: Build
@@ -51,12 +79,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libavcodec-dev libavformat-dev \
             libavutil-dev libswscale-dev libswresample-dev libspdlog-dev \
-            nlohmann-json3-dev libyaml-cpp-dev libgtest-dev
+            nlohmann-json3-dev libyaml-cpp-dev libgtest-dev python3-pip git wget
+      - name: Cache custom dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps/whisper-build
+            deps/whisper-src
+            deps/onnxruntime-linux-x64-1.18.0
+            deps/tesseract-5.5.2
+            deps/leptonica-build
+            deps/leptonica-1.87.0
+            tests/models
+          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/ci-setup-deps.sh') }}
+      - name: Setup custom dependencies
+        run: scripts/ci-setup-deps.sh
       - name: Configure ASan
         run: cmake -B build -DENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug
       - name: Build ASan
