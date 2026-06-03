@@ -1,0 +1,5 @@
+add_executable(basic_decode basic_decode.cpp)
+target_link_libraries(basic_decode PRIVATE video2vec::ffmpeg video2vec::core)
+add_executable(basic_pipeline basic_pipeline.cpp)
+target_link_libraries(basic_pipeline PRIVATE video2vec::core video2vec::windowing video2vec::vision video2vec::flatbuffers)
+install(TARGETS basic_decode basic_pipeline RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples)
