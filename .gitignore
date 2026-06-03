@@ -1,0 +1,90 @@
+# Build outputs
+build/
+out/
+bin/
+obj/
+dist/
+install/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+Makefile
+
+# Compiled objects
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.dll
+*.dylib
+*.lib
+*.exp
+*.pdb
+*.ilk
+
+# Data/model artifacts
+*.vec
+*.idx
+*.faiss
+*.parquet
+
+# Cache/logs
+cache/
+logs/
+tmp/
+temp/
+
+# Models/weights
+models/
+weights/
+*.onnx
+*.pt
+*.bin
+
+# Coverage
+coverage/
+*.gcov
+*.gcda
+*.gcno
+
+# Benchmark results
+benchmark_results/
+
+# Generated files
+generated/
+*.generated.h
+*.generated.cpp
+
+# Artifacts
+artifacts/
+
+# vcpkg
+vcpkg_installed/
+
+# Conan
+conanbuildinfo.cmake
+conaninfo.txt
+conan.lock
+
+# Package files
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# OS
+.DS_Store
+Thumbs.db

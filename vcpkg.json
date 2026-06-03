@@ -1,0 +1,21 @@
+{
+  "name": "video2vec",
+  "version-string": "0.1.0",
+  "description": "Semantic video ingestion library for LLMs and vector databases",
+  "dependencies": [
+    "ffmpeg",
+    "spdlog",
+    "nlohmann-json",
+    "yaml-cpp",
+    {
+      "name": "libvips",
+      "platform": "!windows"
+    },
+    {
+      "name": "tesseract",
+      "platform": "!windows"
+    },
+    "gtest",
+    "benchmark"
+  ]
+}
