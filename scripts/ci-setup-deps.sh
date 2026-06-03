@@ -15,7 +15,7 @@ echo "=== Setting up dependencies in ${DEPS_DIR} ==="
 # ------------------------------------------------------------------
 # whisper.cpp
 # ------------------------------------------------------------------
-if [[ ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.a" ]]; then
+if [[ ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.a" && ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.so" ]]; then
     echo "--- Building whisper.cpp ---"
     if [[ ! -d "${DEPS_DIR}/whisper-src" ]]; then
         git clone --depth 1 --branch v1.7.2 https://github.com/ggerganov/whisper.cpp.git "${DEPS_DIR}/whisper-src"
@@ -24,10 +24,14 @@ if [[ ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.a" ]]; then
         -DCMAKE_BUILD_TYPE=Release \
         -DWHISPER_BUILD_TESTS=OFF \
         -DWHISPER_BUILD_EXAMPLES=OFF \
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DBUILD_SHARED_LIBS=OFF
     cmake --build "${DEPS_DIR}/whisper-build" --parallel $(nproc)
+    echo "--- whisper.cpp build complete ---"
+    ls -la "${DEPS_DIR}/whisper-build/src/"
 else
     echo "--- whisper.cpp already built ---"
+    ls -la "${DEPS_DIR}/whisper-build/src/" 2>/dev/null || true
 fi
 
 # ------------------------------------------------------------------
@@ -54,7 +58,7 @@ else
     echo "--- Tesseract headers already present ---"
 fi
 
-if [[ ! -d "${DEPS_DIR}/leptonica-build/src/libleptonica.a" ]]; then
+if [[ ! -f "${DEPS_DIR}/leptonica-build/src/libleptonica.a" ]]; then
     echo "--- Building leptonica ---"
     if [[ ! -d "${DEPS_DIR}/leptonica-1.87.0" ]]; then
         LEPT_URL="https://github.com/DanBloomberg/leptonica/archive/refs/tags/1.87.0.tar.gz"
@@ -66,6 +70,8 @@ if [[ ! -d "${DEPS_DIR}/leptonica-build/src/libleptonica.a" ]]; then
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         -DBUILD_SHARED_LIBS=OFF
     cmake --build "${DEPS_DIR}/leptonica-build" --parallel $(nproc)
+    echo "--- leptonica build complete ---"
+    ls -la "${DEPS_DIR}/leptonica-build/src/" 2>/dev/null || true
 else
     echo "--- leptonica already built ---"
 fi

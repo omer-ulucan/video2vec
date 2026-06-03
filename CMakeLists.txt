@@ -134,14 +134,22 @@ endif()
 set(VIDEO2VEC_LOCAL_DEPS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps" CACHE PATH "Local prebuilt dependencies directory")
 
 # whisper.cpp
+set(_WHISPER_LIB "")
 if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/src/libwhisper.a")
+    set(_WHISPER_LIB "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/src/libwhisper.a")
+elseif(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/src/libwhisper.so")
+    set(_WHISPER_LIB "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/src/libwhisper.so")
+endif()
+if(_WHISPER_LIB)
     add_library(whisper STATIC IMPORTED)
     set_target_properties(whisper PROPERTIES
-        IMPORTED_LOCATION "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/src/libwhisper.a"
+        IMPORTED_LOCATION "${_WHISPER_LIB}"
         INTERFACE_INCLUDE_DIRECTORIES "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-src/include;${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-src/ggml/include"
     )
     if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/ggml/src/libggml.a")
         set_property(TARGET whisper APPEND PROPERTY INTERFACE_LINK_LIBRARIES "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/ggml/src/libggml.a")
+    elseif(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/ggml/src/libggml.so")
+        set_property(TARGET whisper APPEND PROPERTY INTERFACE_LINK_LIBRARIES "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/ggml/src/libggml.so")
     endif()
     if(OpenMP_C_FOUND OR OpenMP_CXX_FOUND)
         find_package(OpenMP)
@@ -149,7 +157,7 @@ if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/src/libwhisper.a")
             set_property(TARGET whisper APPEND PROPERTY INTERFACE_LINK_LIBRARIES OpenMP::OpenMP_CXX)
         endif()
     endif()
-    message(STATUS "Using local whisper.cpp from ${VIDEO2VEC_LOCAL_DEPS_DIR}")
+    message(STATUS "Using local whisper.cpp from ${VIDEO2VEC_LOCAL_DEPS_DIR} (${_WHISPER_LIB})")
 endif()
 
 # ONNX Runtime
@@ -168,12 +176,7 @@ endif()
 
 # Tesseract (headers from source, library from system)
 if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/src/api")
-    set(_TESSERACT_LIB "")
-    if(EXISTS "/lib64/libtesseract.so.5.5")
-        set(_TESSERACT_LIB "/lib64/libtesseract.so.5.5")
-    elseif(EXISTS "/usr/lib64/libtesseract.so.5.5")
-        set(_TESSERACT_LIB "/usr/lib64/libtesseract.so.5.5")
-    endif()
+    find_library(_TESSERACT_LIB tesseract NAMES tesseract tesseract.so.5 tesseract.so.5.5 PATH_SUFFIXES lib lib64 x86_64-linux-gnu)
     if(_TESSERACT_LIB)
         add_library(Tesseract::libtesseract SHARED IMPORTED)
         set_target_properties(Tesseract::libtesseract PROPERTIES
@@ -181,6 +184,8 @@ if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/src/api")
             INTERFACE_INCLUDE_DIRECTORIES "${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/include;${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/src/api;${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/src/ccutil;${VIDEO2VEC_LOCAL_DEPS_DIR}/leptonica-1.87.0;${VIDEO2VEC_LOCAL_DEPS_DIR}/leptonica-build/src"
         )
         message(STATUS "Using system libtesseract with local headers: ${_TESSERACT_LIB}")
+    else()
+        message(WARNING "Tesseract headers downloaded but system library not found. Install libtesseract-dev (Ubuntu) or tesseract-devel (Fedora).")
     endif()
 endif()
 
