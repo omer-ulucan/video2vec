@@ -1,0 +1,6 @@
+# ASan suppressions for video2vec CI
+# Known leaks in third-party prebuilt libraries, not our code.
+
+# ONNX Runtime prebuilt shared library has internal allocations
+# that are not freed on session destruction.
+leak:libonnxruntime.so

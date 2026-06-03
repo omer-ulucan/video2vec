@@ -80,7 +80,7 @@ TEST(RealBackends, ONNXEmbedding) {
     std::string text_model = TESTS_DIR "/models/tiny_embedding.onnx";
     embedding::EmbeddingConfig text_cfg{};
     text_cfg.visual_dim = 512;
-    text_cfg.text_dim = 384;
+    text_cfg.text_dim = 512;
     auto text_init = text_backend.initialize(text_model, text_cfg);
     if (!text_init) {
         GTEST_SKIP() << "ONNX text model not available: " << text_init.error().message;

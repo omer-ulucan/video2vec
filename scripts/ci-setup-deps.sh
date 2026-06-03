@@ -89,8 +89,14 @@ fi
 # ------------------------------------------------------------------
 if [[ ! -f "${MODELS_DIR}/ggml-tiny.bin" ]]; then
     echo "--- Downloading whisper model ---"
-    curl -L -o "${MODELS_DIR}/ggml-tiny.bin" \
+    curl -f -L --retry 3 -o "${MODELS_DIR}/ggml-tiny.bin" \
         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin"
+    # Validate file size (should be ~77MB)
+    filesize=$(stat -f%z "${MODELS_DIR}/ggml-tiny.bin" 2>/dev/null || stat -c%s "${MODELS_DIR}/ggml-tiny.bin")
+    if [ "$filesize" -lt 70000000 ]; then
+        echo "ERROR: Downloaded whisper model is too small ($filesize bytes)"
+        exit 1
+    fi
 else
     echo "--- whisper model already present ---"
 fi
