@@ -83,7 +83,8 @@ jobs:
   sanitize:
     runs-on: ubuntu-latest
     env:
-      ASAN_OPTIONS: detect_leaks=1:suppressions=${{ github.workspace }}/scripts/asan.supp
+      ASAN_OPTIONS: detect_leaks=1
+      LSAN_OPTIONS: suppressions=${{ github.workspace }}/scripts/asan.supp
     steps:
       - uses: actions/checkout@v4
       - name: Install system dependencies
