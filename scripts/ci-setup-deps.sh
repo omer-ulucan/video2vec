@@ -128,7 +128,7 @@ flatten = helper.make_node("Flatten", ["conv_out"], ["flat_out"], axis=1)
 # Gemm: 15376 -> 512
 w = helper.make_tensor("gemm_w", TensorProto.FLOAT, [512, 15376], [0.001]*(512*15376))
 b = helper.make_tensor("gemm_b", TensorProto.FLOAT, [512], [0.0]*512)
-gemm = helper.make_node("Gemm", ["flat_out", "gemm_w", "gemm_b"], ["output"])
+gemm = helper.make_node("Gemm", ["flat_out", "gemm_w", "gemm_b"], ["output"], transB=1)
 
 graph = helper.make_graph([conv, flatten, gemm], "tiny", [input_tensor], [output_tensor], [conv_w, conv_b, w, b])
 model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
@@ -158,7 +158,7 @@ output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 5
 
 w = helper.make_tensor("w", TensorProto.FLOAT, [512, 512], [0.001]*(512*512))
 b = helper.make_tensor("b", TensorProto.FLOAT, [512], [0.0]*512)
-gemm = helper.make_node("Gemm", ["input", "w", "b"], ["output"])
+gemm = helper.make_node("Gemm", ["input", "w", "b"], ["output"], transB=1)
 
 graph = helper.make_graph([gemm], "tiny_embed", [input_tensor], [output_tensor], [w, b])
 model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
