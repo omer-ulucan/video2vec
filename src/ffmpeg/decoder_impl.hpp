@@ -7,6 +7,8 @@
 
 #include "video2vec/ffmpeg/media.hpp"
 
+struct AVCodecParameters;
+
 namespace video2vec::ffmpeg {
 
 class Decoder {
@@ -19,6 +21,9 @@ public:
     Decoder& operator=(Decoder&&) noexcept;
 
     // Initialize from codec parameters extracted from demuxer streams.
+    int initialize(const AVCodecParameters* codec_params);
+
+    // Simplified initialization for cases where raw parameters are unavailable.
     // codec_id: e.g. "h264", "aac", etc.
     int initialize(const char* codec_id, int width, int height, int sample_rate, int channels);
 

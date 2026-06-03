@@ -27,8 +27,11 @@ public:
     [[nodiscard]] bool is_key_frame() const;
     void unref();
 
+    // Opaque native handle for internal use only. Do not rely on the concrete type.
+    [[nodiscard]] void* native_handle() const noexcept;
+
     struct Impl;
-    Impl* get() const;
+
 private:
     std::unique_ptr<Impl> impl_;
 };
@@ -53,8 +56,11 @@ public:
     [[nodiscard]] std::span<const uint8_t*> data() const;
     [[nodiscard]] std::span<const int> linesize() const;
 
+    // Opaque native handle for internal use only. Do not rely on the concrete type.
+    [[nodiscard]] void* native_handle() const noexcept;
+
     struct Impl;
-    Impl* get() const;
+
 private:
     std::unique_ptr<Impl> impl_;
 };

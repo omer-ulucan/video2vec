@@ -30,7 +30,7 @@ std::span<const uint8_t> Packet::data() const {
 }
 bool Packet::is_key_frame() const { return impl_->pkt ? (impl_->pkt->flags & AV_PKT_FLAG_KEY) != 0 : false; }
 void Packet::unref() { if (impl_->pkt) av_packet_unref(impl_->pkt); }
-Packet::Impl* Packet::get() const { return impl_.get(); }
+void* Packet::native_handle() const noexcept { return impl_.get(); }
 
 // ------------------------------------------------------------------
 // Frame
@@ -61,11 +61,23 @@ std::span<const int> Frame::linesize() const {
     if (!impl_->frame) return {};
     return std::span<const int>(impl_->frame->linesize, AV_NUM_DATA_POINTERS);
 }
-Frame::Impl* Frame::get() const { return impl_.get(); }
+void* Frame::native_handle() const noexcept { return impl_.get(); }
 
-AVPacket* native_packet(Packet& p) { return p.get() ? p.get()->pkt : nullptr; }
-const AVPacket* native_packet(const Packet& p) { return p.get() ? p.get()->pkt : nullptr; }
-AVFrame* native_frame(Frame& f) { return f.get() ? f.get()->frame : nullptr; }
-const AVFrame* native_frame(const Frame& f) { return f.get() ? f.get()->frame : nullptr; }
+AVPacket* native_packet(Packet& p) {
+    auto* impl = static_cast<Packet::Impl*>(p.native_handle());
+    return impl ? impl->pkt : nullptr;
+}
+const AVPacket* native_packet(const Packet& p) {
+    auto* impl = static_cast<const Packet::Impl*>(p.native_handle());
+    return impl ? impl->pkt : nullptr;
+}
+AVFrame* native_frame(Frame& f) {
+    auto* impl = static_cast<Frame::Impl*>(f.native_handle());
+    return impl ? impl->frame : nullptr;
+}
+const AVFrame* native_frame(const Frame& f) {
+    auto* impl = static_cast<const Frame::Impl*>(f.native_handle());
+    return impl ? impl->frame : nullptr;
+}
 
 } // namespace video2vec::ffmpeg

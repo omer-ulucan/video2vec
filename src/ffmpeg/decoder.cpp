@@ -45,6 +45,19 @@ Decoder& Decoder::operator=(Decoder&& other) noexcept {
     return *this;
 }
 
+int Decoder::initialize(const AVCodecParameters* codec_params) {
+    if (!codec_params) return AVERROR_INVALIDDATA;
+    impl_->codec_ = avcodec_find_decoder(codec_params->codec_id);
+    if (!impl_->codec_) return AVERROR_DECODER_NOT_FOUND;
+    impl_->ctx_ = avcodec_alloc_context3(impl_->codec_);
+    if (!impl_->ctx_) return AVERROR(ENOMEM);
+    int ret = avcodec_parameters_to_context(impl_->ctx_, codec_params);
+    if (ret < 0) { avcodec_free_context(&impl_->ctx_); return ret; }
+    ret = avcodec_open2(impl_->ctx_, impl_->codec_, nullptr);
+    if (ret < 0) { avcodec_free_context(&impl_->ctx_); return ret; }
+    return 0;
+}
+
 int Decoder::initialize(const char* codec_id, int width, int height, int sample_rate, int channels) {
     AVCodecID id = codec_id_from_name(codec_id);
     if (id == AV_CODEC_ID_NONE) return AVERROR_DECODER_NOT_FOUND;
