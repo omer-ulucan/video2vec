@@ -39,7 +39,8 @@ namespace {
     };
 }
 
-std::unique_ptr<ILogger> Logger::logger_;
+std::atomic<ILogger*> Logger::logger_ptr_{nullptr};
+std::unique_ptr<ILogger> Logger::logger_owner_;
 std::once_flag Logger::init_flag_;
 
 void Logger::initialize(const std::string& name, const std::string& pattern) {
@@ -48,7 +49,8 @@ void Logger::initialize(const std::string& name, const std::string& pattern) {
         console_sink->set_pattern(pattern);
         auto logger = std::make_shared<spdlog::logger>(name, console_sink);
         logger->set_level(spdlog::level::info);
-        logger_ = std::make_unique<SpdlogLogger>(logger);
+        logger_owner_ = std::make_unique<SpdlogLogger>(logger);
+        logger_ptr_.store(logger_owner_.get(), std::memory_order_release);
     });
 }
 
@@ -58,13 +60,17 @@ void Logger::initialize_async(size_t queue_size, const std::string& name) {
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         auto logger = std::make_shared<spdlog::async_logger>(
             name, console_sink, spdlog::thread_pool(), spdlog::async_overflow_policy::block);
-        logger_ = std::make_unique<SpdlogLogger>(logger);
+        logger_owner_ = std::make_unique<SpdlogLogger>(logger);
+        logger_ptr_.store(logger_owner_.get(), std::memory_order_release);
     });
 }
 
 ILogger& Logger::instance() {
-    if (!logger_) initialize();
-    return *logger_;
+    ILogger* ptr = logger_ptr_.load(std::memory_order_acquire);
+    if (ptr) return *ptr;
+    initialize();
+    ptr = logger_ptr_.load(std::memory_order_acquire);
+    return *ptr;
 }
 
 void Logger::set_level(LogLevel level) { instance().set_level(level); }

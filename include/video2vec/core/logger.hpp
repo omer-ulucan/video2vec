@@ -42,7 +42,8 @@ public:
     static void error(const std::string& msg, const LogContext& ctx = {});
     static void fatal(const std::string& msg, const LogContext& ctx = {});
 private:
-    static std::unique_ptr<ILogger> logger_;
+    static std::atomic<ILogger*> logger_ptr_;
+    static std::unique_ptr<ILogger> logger_owner_;
     static std::once_flag init_flag_;
 };
 

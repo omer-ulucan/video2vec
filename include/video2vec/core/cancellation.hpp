@@ -24,7 +24,7 @@ public:
 private:
     mutable std::mutex mutex_;
     mutable std::condition_variable cv_;
-    std::atomic<bool> cancelled_{false};
+    mutable std::atomic<bool> cancelled_{false};
     std::chrono::steady_clock::time_point deadline_;
     std::function<void()> callback_;
 };

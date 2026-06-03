@@ -2,6 +2,7 @@
 #include "video2vec/core/logger.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <numeric>
 
@@ -12,6 +13,30 @@
 #endif
 
 namespace video2vec::index {
+
+namespace {
+    constexpr int64_t kMaxRecords = 10'000'000;
+    constexpr int32_t kMaxStringLen = 1'000'000;
+    constexpr int32_t kMaxVectorDim = 65536;
+
+    template <typename T>
+    bool read_exact(std::istream& stream, T& value) {
+        stream.read(reinterpret_cast<char*>(&value), sizeof(T));
+        return stream.good() && static_cast<size_t>(stream.gcount()) == sizeof(T);
+    }
+
+    bool read_string(std::istream& stream, std::string& out, int32_t max_len) {
+        int32_t len = 0;
+        if (!read_exact(stream, len)) return false;
+        if (len < 0 || len > max_len) return false;
+        out.resize(len);
+        if (len > 0) {
+            stream.read(out.data(), len);
+            if (!stream.good() || static_cast<size_t>(stream.gcount()) != static_cast<size_t>(len)) return false;
+        }
+        return true;
+    }
+}
 
 class FAISSStore::Impl {
 public:
@@ -124,7 +149,7 @@ core::Result<std::vector<SearchResult>> FAISSStore::search(std::span<const float
     if (config.temporal_rerank && results.size() > 1) {
         for (size_t i = 0; i < results.size(); ++i) {
             for (size_t j = i + 1; j < results.size(); ++j) {
-                int64_t dt = std::llabs(results[i].record.ts_ms - results[j].record.ts_ms);
+                int64_t dt = std::abs(results[i].record.ts_ms - results[j].record.ts_ms);
                 if (dt < 5000) {
                     float boost = 1.0f + (5000.0f - static_cast<float>(dt)) / 10000.0f;
                     results[i].score *= boost;
@@ -163,28 +188,55 @@ core::Result<void> FAISSStore::persist(const std::string& path) {
         file.write(reinterpret_cast<const char*>(&text_len), sizeof(text_len));
         file.write(r.text.data(), r.text.size());
     }
+    if (!file.good()) {
+        return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "incomplete write during persist: " + path));
+    }
     return core::Result<void>();
 }
 
 core::Result<void> FAISSStore::load(const std::string& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file) return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "cannot open file for reading: " + path));
-    int32_t dim; file.read(reinterpret_cast<char*>(&dim), sizeof(dim)); impl_->dim_ = dim;
-    int32_t metric_len; file.read(reinterpret_cast<char*>(&metric_len), sizeof(metric_len));
-    impl_->metric_.resize(metric_len); file.read(impl_->metric_.data(), metric_len);
-    int64_t count; file.read(reinterpret_cast<char*>(&count), sizeof(count));
-    impl_->records_.clear(); impl_->records_.reserve(count);
+
+    int32_t dim = 0;
+    if (!read_exact(file, dim)) return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "failed to read dimension"));
+    if (dim < 0 || dim > kMaxVectorDim) return core::Result<void>(core::Error::from_code(core::ErrorCode::InvalidArgument, "invalid dimension in store file"));
+    impl_->dim_ = dim;
+
+    if (!read_string(file, impl_->metric_, kMaxStringLen)) {
+        return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "failed to read metric"));
+    }
+
+    int64_t count = 0;
+    if (!read_exact(file, count)) return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "failed to read record count"));
+    if (count < 0 || count > kMaxRecords) return core::Result<void>(core::Error::from_code(core::ErrorCode::InvalidArgument, "invalid record count in store file"));
+
+    impl_->records_.clear();
+    impl_->records_.reserve(static_cast<size_t>(count));
     for (int64_t i = 0; i < count; ++i) {
         VectorRecord r{};
-        int32_t id_len; file.read(reinterpret_cast<char*>(&id_len), sizeof(id_len));
-        r.id.resize(id_len); file.read(r.id.data(), id_len);
-        int32_t vec_len; file.read(reinterpret_cast<char*>(&vec_len), sizeof(vec_len));
-        r.vector.resize(vec_len); file.read(reinterpret_cast<char*>(r.vector.data()), vec_len * sizeof(float));
-        int64_t ts; file.read(reinterpret_cast<char*>(&ts), sizeof(ts)); r.ts_ms = ts;
-        int32_t type_len; file.read(reinterpret_cast<char*>(&type_len), sizeof(type_len));
-        r.type.resize(type_len); file.read(r.type.data(), type_len);
-        int32_t text_len; file.read(reinterpret_cast<char*>(&text_len), sizeof(text_len));
-        r.text.resize(text_len); file.read(r.text.data(), text_len);
+        if (!read_string(file, r.id, kMaxStringLen)) {
+            return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "failed to read record id at index " + std::to_string(i)));
+        }
+        int32_t vec_len = 0;
+        if (!read_exact(file, vec_len)) return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "failed to read vector length"));
+        if (vec_len < 0 || vec_len > kMaxVectorDim) return core::Result<void>(core::Error::from_code(core::ErrorCode::InvalidArgument, "invalid vector length"));
+        r.vector.resize(vec_len);
+        if (vec_len > 0) {
+            file.read(reinterpret_cast<char*>(r.vector.data()), vec_len * sizeof(float));
+            if (!file.good() || static_cast<size_t>(file.gcount()) != static_cast<size_t>(vec_len) * sizeof(float)) {
+                return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "failed to read vector data"));
+            }
+        }
+        int64_t ts = 0;
+        if (!read_exact(file, ts)) return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "failed to read timestamp"));
+        r.ts_ms = ts;
+        if (!read_string(file, r.type, kMaxStringLen)) {
+            return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "failed to read record type"));
+        }
+        if (!read_string(file, r.text, kMaxStringLen)) {
+            return core::Result<void>(core::Error::from_code(core::ErrorCode::IoError, "failed to read record text"));
+        }
         impl_->records_.push_back(std::move(r));
     }
     impl_->initialized_ = true;

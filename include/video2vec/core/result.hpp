@@ -95,9 +95,13 @@ public:
     }
     const Error& error() const& { return std::get<Error>(data_); }
     Error&& error() && { return std::get<Error>(std::move(data_)); }
-    T value_or(T default_value) const& {
+    T value_or(const T& default_value) const& {
         if (ok()) return std::get<T>(data_);
         return default_value;
+    }
+    T value_or(T&& default_value) const& {
+        if (ok()) return std::get<T>(data_);
+        return std::move(default_value);
     }
     template <typename F>
     auto map(F&& f) -> Result<std::invoke_result_t<F, T&>> {

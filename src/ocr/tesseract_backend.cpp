@@ -97,11 +97,15 @@ core::Result<OCRResult> TesseractBackend::recognize(std::span<const uint8_t> ima
 }
 
 void TesseractBackend::unload() {
+    impl_->loaded = false;
     if (impl_->api) {
-        impl_->api->End();
+        try {
+            impl_->api->End();
+        } catch (...) {
+            // swallow exceptions during cleanup
+        }
         impl_->api.reset();
     }
-    impl_->loaded = false;
 }
 
 bool TesseractBackend::is_loaded() const { return impl_->loaded; }

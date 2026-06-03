@@ -64,12 +64,11 @@ bool ConfigNode::has(const std::string& key) const {
 }
 
 const ConfigNode& ConfigNode::operator[](const std::string& key) const {
-    static const ConfigNode empty{};
-    if (!is_map()) return empty;
+    if (!is_map()) throw std::out_of_range("ConfigNode is not a map");
     auto& m = std::get<std::map<std::string, ConfigNode>>(value_);
     auto it = m.find(key);
     if (it != m.end()) return it->second;
-    return empty;
+    throw std::out_of_range("ConfigNode key not found: " + key);
 }
 
 ConfigNode& ConfigNode::operator[](const std::string& key) {
@@ -161,6 +160,7 @@ const ConfigNode& Config::get(const std::string& path) const {
     while (pos < path.size()) {
         size_t dot = path.find('.', pos);
         std::string key = path.substr(pos, dot == std::string::npos ? std::string::npos : dot - pos);
+        if (!node->has(key)) throw std::out_of_range("config path not found: " + path + " (missing key: " + key + ")");
         node = &(*node)[key];
         if (dot == std::string::npos) break;
         pos = dot + 1;

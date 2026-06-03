@@ -33,7 +33,12 @@ void ThreadPool::worker_loop(size_t worker_id) {
             tasks_.pop();
         }
         active_.fetch_add(1);
-        task();
+        try {
+            task();
+        } catch (...) {
+            active_.fetch_sub(1);
+            throw;
+        }
         active_.fetch_sub(1);
     }
 }

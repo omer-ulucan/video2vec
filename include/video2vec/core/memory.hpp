@@ -16,6 +16,7 @@ public:
     AlignedBuffer(size_t count, size_t alignment = 64)
         : count_(count), alignment_(alignment) {
         data_ = static_cast<T*>(aligned_alloc(alignment, count * sizeof(T)));
+        if (!data_) throw std::bad_alloc();
     }
     ~AlignedBuffer() { free(data_); }
     AlignedBuffer(const AlignedBuffer&) = delete;

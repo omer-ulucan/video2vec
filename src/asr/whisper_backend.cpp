@@ -3,9 +3,7 @@
 #include <cstring>
 #include <vector>
 
-extern "C" {
 #include "whisper.h"
-}
 
 namespace video2vec::asr {
 

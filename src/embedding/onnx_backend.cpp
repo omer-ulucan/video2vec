@@ -15,17 +15,8 @@ public:
     std::unique_ptr<Ort::Session> session_;
     std::vector<std::string> input_names_;
     std::vector<std::string> output_names_;
-
-    std::vector<const char*> input_name_ptrs() const {
-        std::vector<const char*> ptrs;
-        for (const auto& s : input_names_) ptrs.push_back(s.c_str());
-        return ptrs;
-    }
-    std::vector<const char*> output_name_ptrs() const {
-        std::vector<const char*> ptrs;
-        for (const auto& s : output_names_) ptrs.push_back(s.c_str());
-        return ptrs;
-    }
+    std::vector<const char*> input_ptrs_;
+    std::vector<const char*> output_ptrs_;
 };
 
 ONNXBackend::ONNXBackend() : impl_(std::make_unique<Impl>()) {}
@@ -44,10 +35,12 @@ core::Result<void> ONNXBackend::initialize(const std::string& model_path, const 
         size_t num_inputs = impl_->session_->GetInputCount();
         for (size_t i = 0; i < num_inputs; ++i) {
             impl_->input_names_.push_back(std::string(impl_->session_->GetInputNameAllocated(i, allocator).get()));
+            impl_->input_ptrs_.push_back(impl_->input_names_.back().c_str());
         }
         size_t num_outputs = impl_->session_->GetOutputCount();
         for (size_t i = 0; i < num_outputs; ++i) {
             impl_->output_names_.push_back(std::string(impl_->session_->GetOutputNameAllocated(i, allocator).get()));
+            impl_->output_ptrs_.push_back(impl_->output_names_.back().c_str());
         }
 
         impl_->loaded_ = true;
@@ -90,11 +83,9 @@ core::Result<std::vector<Embedding>> ONNXBackend::encode_images(std::span<const 
                 allocator.GetInfo(), input_data.data(), input_data.size(), input_shape.data(), input_shape.size());
 
             Ort::RunOptions run_options;
-            auto in_ptrs = impl_->input_name_ptrs();
-            auto out_ptrs = impl_->output_name_ptrs();
             auto output_tensors = impl_->session_->Run(run_options,
-                in_ptrs.data(), &input_tensor, 1,
-                out_ptrs.data(), out_ptrs.size());
+                impl_->input_ptrs_.data(), &input_tensor, 1,
+                impl_->output_ptrs_.data(), impl_->output_ptrs_.size());
 
             float* output_data = output_tensors[0].GetTensorMutableData<float>();
             size_t output_count = output_tensors[0].GetTensorTypeAndShapeInfo().GetElementCount();
@@ -128,8 +119,6 @@ core::Result<std::vector<Embedding>> ONNXBackend::encode_text(const std::vector<
 
         for (size_t i = 0; i < texts.size(); ++i) {
             // Simple char-level encoding: convert text to float tensor of token IDs
-            // This is a placeholder text tokenizer for demonstration.
-            // Real CLIP models use BPE tokenization.
             std::vector<float> token_ids(impl_->config_.text_dim, 0.0f);
             for (size_t j = 0; j < texts[i].size() && j < static_cast<size_t>(impl_->config_.text_dim); ++j) {
                 token_ids[j] = static_cast<float>(static_cast<unsigned char>(texts[i][j])) / 255.0f;
@@ -140,11 +129,9 @@ core::Result<std::vector<Embedding>> ONNXBackend::encode_text(const std::vector<
                 allocator.GetInfo(), token_ids.data(), token_ids.size(), input_shape.data(), input_shape.size());
 
             Ort::RunOptions run_options;
-            auto in_ptrs = impl_->input_name_ptrs();
-            auto out_ptrs = impl_->output_name_ptrs();
             auto output_tensors = impl_->session_->Run(run_options,
-                in_ptrs.data(), &input_tensor, 1,
-                out_ptrs.data(), out_ptrs.size());
+                impl_->input_ptrs_.data(), &input_tensor, 1,
+                impl_->output_ptrs_.data(), impl_->output_ptrs_.size());
 
             float* output_data = output_tensors[0].GetTensorMutableData<float>();
             size_t output_count = output_tensors[0].GetTensorTypeAndShapeInfo().GetElementCount();
