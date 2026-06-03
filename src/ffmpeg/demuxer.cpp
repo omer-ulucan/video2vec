@@ -1,9 +1,13 @@
 #include "video2vec/ffmpeg/demuxer.hpp"
+#include "video2vec/ffmpeg/media.hpp"
+#include "ffmpeg_helpers.hpp"
 
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavutil/dict.h>
 }
+
+#include <cstring>
 
 namespace video2vec::ffmpeg {
 
@@ -24,6 +28,21 @@ Demuxer& Demuxer::operator=(Demuxer&& other) noexcept {
         impl_ = std::move(other.impl_);
     }
     return *this;
+}
+
+static MediaType to_media_type(int av_type) {
+    switch (av_type) {
+        case AVMEDIA_TYPE_VIDEO: return MediaType::Video;
+        case AVMEDIA_TYPE_AUDIO: return MediaType::Audio;
+        case AVMEDIA_TYPE_SUBTITLE: return MediaType::Subtitle;
+        case AVMEDIA_TYPE_DATA: return MediaType::Data;
+        case AVMEDIA_TYPE_ATTACHMENT: return MediaType::Attachment;
+        default: return MediaType::Unknown;
+    }
+}
+
+static Rational to_rational(AVRational avr) {
+    return Rational{avr.num, avr.den};
 }
 
 int Demuxer::open(const std::string& path) {
@@ -67,7 +86,7 @@ VideoProperties Demuxer::video_properties() const {
     AVStream* st = impl_->fmt_ctx_->streams[impl_->video_stream_];
     props.width = st->codecpar->width;
     props.height = st->codecpar->height;
-    props.time_base = st->time_base;
+    props.time_base = to_rational(st->time_base);
     AVRational avg_fps = av_guess_frame_rate(impl_->fmt_ctx_, st, nullptr);
     if (avg_fps.den > 0) props.fps = av_q2d(avg_fps);
     if (st->nb_frames > 0) props.frame_count = st->nb_frames;
@@ -82,7 +101,7 @@ AudioProperties Demuxer::audio_properties() const {
     AVStream* st = impl_->fmt_ctx_->streams[impl_->audio_stream_];
     props.sample_rate = st->codecpar->sample_rate;
     props.channels = st->codecpar->ch_layout.nb_channels;
-    props.time_base = st->time_base;
+    props.time_base = to_rational(st->time_base);
     if (st->duration > 0)
         props.sample_count = static_cast<int64_t>(st->duration * av_q2d(st->time_base) * props.sample_rate);
     return props;
@@ -101,18 +120,21 @@ std::vector<StreamInfo> Demuxer::streams() const {
         info.height = st->codecpar->height;
         info.sample_rate = st->codecpar->sample_rate;
         info.channels = st->codecpar->ch_layout.nb_channels;
-        info.type = st->codecpar->codec_type;
+        info.type = to_media_type(st->codecpar->codec_type);
         const AVCodec* codec = avcodec_find_decoder(st->codecpar->codec_id);
         if (codec) info.codec_name = codec->name;
-        info.time_base = st->time_base;
+        info.time_base = to_rational(st->time_base);
         result.push_back(std::move(info));
     }
     return result;
 }
 
-int Demuxer::read_packet(AVPacket* packet) {
+int Demuxer::read_packet(Packet& packet) {
     if (!impl_->fmt_ctx_) return AVERROR_INVALIDDATA;
-    return av_read_frame(impl_->fmt_ctx_, packet);
+    packet.unref();
+    AVPacket* pkt = native_packet(packet);
+    if (!pkt) return AVERROR_INVALIDDATA;
+    return av_read_frame(impl_->fmt_ctx_, pkt);
 }
 
 int Demuxer::seek(int stream_index, int64_t pts, int flags) {

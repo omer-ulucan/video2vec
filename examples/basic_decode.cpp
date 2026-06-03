@@ -1,5 +1,4 @@
 #include <video2vec/ffmpeg/demuxer.hpp>
-#include <video2vec/ffmpeg/decoder.hpp>
 #include <video2vec/core/logger.hpp>
 #include <iostream>
 
@@ -13,7 +12,7 @@ int main(int argc, char** argv) {
     auto streams = demuxer.streams();
     for (const auto& s : streams) {
         std::cout << "Stream " << s.index << ": " << s.codec_name
-                  << " type=" << (s.type == AVMEDIA_TYPE_VIDEO ? "video" : "audio")
+                  << " type=" << (s.type == video2vec::ffmpeg::MediaType::Video ? "video" : "audio")
                   << " duration=" << s.duration_seconds << "s\n";
     }
     auto vprops = demuxer.video_properties();

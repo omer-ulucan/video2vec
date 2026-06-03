@@ -71,6 +71,13 @@ generated/
 # Artifacts
 artifacts/
 
+# Local dependency builds
+deps/
+
+# Test artifacts
+tests/data/
+tests/models/
+
 # vcpkg
 vcpkg_installed/
 

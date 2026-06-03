@@ -1,6 +1,7 @@
 add_library(video2vec-ffmpeg
     demuxer.cpp
     decoder.cpp
+    media.cpp
     audio_buffer.cpp
 )
 
@@ -10,9 +11,9 @@ target_include_directories(video2vec-ffmpeg
     PUBLIC
         $<BUILD_INTERFACE:${VIDEO2VEC_PUBLIC_INCLUDE_DIR}>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-        ${FFMPEG_INCLUDE_DIRS}
     PRIVATE
         ${VIDEO2VEC_PRIVATE_INCLUDE_DIR}
+        ${FFMPEG_INCLUDE_DIRS}
 )
 
 target_link_libraries(video2vec-ffmpeg
@@ -24,6 +25,7 @@ target_compile_options(video2vec-ffmpeg PRIVATE ${FFMPEG_CFLAGS_OTHER})
 
 set_target_properties(video2vec-ffmpeg PROPERTIES
     OUTPUT_NAME video2vec-ffmpeg
+    EXPORT_NAME ffmpeg
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
