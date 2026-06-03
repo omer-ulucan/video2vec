@@ -89,8 +89,8 @@ fi
 # ------------------------------------------------------------------
 if [[ ! -f "${MODELS_DIR}/ggml-tiny.bin" ]]; then
     echo "--- Downloading whisper model ---"
-    wget -q --show-progress "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin" \
-        -O "${MODELS_DIR}/ggml-tiny.bin"
+    curl -L -o "${MODELS_DIR}/ggml-tiny.bin" \
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin"
 else
     echo "--- whisper model already present ---"
 fi

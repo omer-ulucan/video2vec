@@ -9,34 +9,40 @@ add_library(video2vec-core
 
 add_library(video2vec::core ALIAS video2vec-core)
 
-# Resolve third-party dependencies without linking to CMake targets
-# that cannot be exported (e.g. FetchContent-generated targets).
+# Resolve third-party dependencies.  For static libraries we extract the
+# file path so install(EXPORT) does not leak FetchContent targets.  For
+# system shared libraries we link to the CMake target directly so
+# transitive dependencies (e.g. spdlog -> fmt) are preserved.
 set(CORE_PRIVATE_LIBS)
 set(CORE_PRIVATE_INCLUDES ${VIDEO2VEC_PRIVATE_INCLUDE_DIR})
 
-if(TARGET spdlog)
-    get_target_property(_spdlog_inc spdlog INTERFACE_INCLUDE_DIRECTORIES)
-    if(NOT _spdlog_inc)
-        get_target_property(_spdlog_inc spdlog INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
+macro(_link_third_party_target target_name)
+    get_target_property(_type ${target_name} TYPE)
+    get_target_property(_inc ${target_name} INTERFACE_INCLUDE_DIRECTORIES)
+    if(NOT _inc)
+        get_target_property(_inc ${target_name} INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
     endif()
-    list(APPEND CORE_PRIVATE_LIBS $<TARGET_FILE:spdlog>)
-    if(_spdlog_inc)
-        list(APPEND CORE_PRIVATE_INCLUDES ${_spdlog_inc})
+    if(_type STREQUAL "STATIC_LIBRARY")
+        list(APPEND CORE_PRIVATE_LIBS $<TARGET_FILE:${target_name}>)
+    else()
+        list(APPEND CORE_PRIVATE_LIBS ${target_name})
     endif()
+    if(_inc)
+        list(APPEND CORE_PRIVATE_INCLUDES ${_inc})
+    endif()
+endmacro()
+
+if(TARGET spdlog::spdlog)
+    _link_third_party_target(spdlog::spdlog)
+elseif(TARGET spdlog)
+    _link_third_party_target(spdlog)
 elseif(SPDLOG_FOUND)
     list(APPEND CORE_PRIVATE_LIBS ${SPDLOG_LIBRARIES})
     list(APPEND CORE_PRIVATE_INCLUDES ${SPDLOG_INCLUDE_DIRS})
 endif()
 
 if(TARGET yaml-cpp)
-    get_target_property(_yaml_inc yaml-cpp INTERFACE_INCLUDE_DIRECTORIES)
-    if(NOT _yaml_inc)
-        get_target_property(_yaml_inc yaml-cpp INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
-    endif()
-    list(APPEND CORE_PRIVATE_LIBS $<TARGET_FILE:yaml-cpp>)
-    if(_yaml_inc)
-        list(APPEND CORE_PRIVATE_INCLUDES ${_yaml_inc})
-    endif()
+    _link_third_party_target(yaml-cpp)
 elseif(YAML_CPP_FOUND)
     list(APPEND CORE_PRIVATE_LIBS ${YAML_CPP_LIBRARIES})
     list(APPEND CORE_PRIVATE_INCLUDES ${YAML_CPP_INCLUDE_DIRS})
