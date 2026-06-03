@@ -9,24 +9,20 @@ add_library(video2vec-core
 
 add_library(video2vec::core ALIAS video2vec-core)
 
-# Resolve third-party dependencies.  For static libraries we extract the
-# file path so install(EXPORT) does not leak FetchContent targets.  For
-# system shared libraries we link to the CMake target directly so
-# transitive dependencies (e.g. spdlog -> fmt) are preserved.
+# Resolve third-party dependencies.
+# Link to CMake target names directly (not $<TARGET_FILE:> paths) so that
+# build ordering is correct when dependencies are built via FetchContent.
+# PRIVATE link dependencies are not exported by install(EXPORT), so this
+# does not leak internal targets to consumers.
 set(CORE_PRIVATE_LIBS)
 set(CORE_PRIVATE_INCLUDES ${VIDEO2VEC_PRIVATE_INCLUDE_DIR})
 
 macro(_link_third_party_target target_name)
-    get_target_property(_type ${target_name} TYPE)
     get_target_property(_inc ${target_name} INTERFACE_INCLUDE_DIRECTORIES)
     if(NOT _inc)
         get_target_property(_inc ${target_name} INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
     endif()
-    if(_type STREQUAL "STATIC_LIBRARY")
-        list(APPEND CORE_PRIVATE_LIBS $<TARGET_FILE:${target_name}>)
-    else()
-        list(APPEND CORE_PRIVATE_LIBS ${target_name})
-    endif()
+    list(APPEND CORE_PRIVATE_LIBS ${target_name})
     if(_inc)
         list(APPEND CORE_PRIVATE_INCLUDES ${_inc})
     endif()
