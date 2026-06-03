@@ -10,5 +10,10 @@ if(VIPS_FOUND)
 else()
     target_link_libraries(video2vec-vision PUBLIC video2vec::core video2vec::ocr)
 endif()
-set_target_properties(video2vec-vision PROPERTIES OUTPUT_NAME video2vec-vision VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
+set_target_properties(video2vec-vision PROPERTIES
+    OUTPUT_NAME video2vec-vision
+    EXPORT_NAME vision
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+)
 install(TARGETS video2vec-vision EXPORT video2vecTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

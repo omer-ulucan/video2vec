@@ -56,6 +56,12 @@ endif()
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 
+# Build fetched third-party dependencies as static libraries so they
+# are embedded into our shared libraries and do not leak as runtime
+# dependencies that would break install(EXPORT).
+set(_VIDEO2VEC_BUILD_SHARED_LIBS_SAVE ${BUILD_SHARED_LIBS})
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
 find_package(spdlog QUIET)
 if(NOT spdlog_FOUND)
     pkg_check_modules(SPDLOG spdlog)
@@ -109,6 +115,8 @@ if(NOT cxxopts_FOUND)
     FetchContent_MakeAvailable(cxxopts)
 endif()
 
+set(BUILD_SHARED_LIBS ${_VIDEO2VEC_BUILD_SHARED_LIBS_SAVE} CACHE BOOL "" FORCE)
+
 pkg_check_modules(FFMPEG REQUIRED
     libavcodec
     libavformat
@@ -120,6 +128,60 @@ pkg_check_modules(FFMPEG REQUIRED
 pkg_check_modules(VIPS vips)
 if(NOT VIPS_FOUND)
     message(STATUS "libvips not found, vision module will be limited")
+endif()
+
+# --- Local prebuilt dependencies ---
+set(VIDEO2VEC_LOCAL_DEPS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps" CACHE PATH "Local prebuilt dependencies directory")
+
+# whisper.cpp
+if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/src/libwhisper.a")
+    add_library(whisper STATIC IMPORTED)
+    set_target_properties(whisper PROPERTIES
+        IMPORTED_LOCATION "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/src/libwhisper.a"
+        INTERFACE_INCLUDE_DIRECTORIES "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-src/include;${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-src/ggml/include"
+    )
+    if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/ggml/src/libggml.a")
+        set_property(TARGET whisper APPEND PROPERTY INTERFACE_LINK_LIBRARIES "${VIDEO2VEC_LOCAL_DEPS_DIR}/whisper-build/ggml/src/libggml.a")
+    endif()
+    if(OpenMP_C_FOUND OR OpenMP_CXX_FOUND)
+        find_package(OpenMP)
+        if(OpenMP_FOUND)
+            set_property(TARGET whisper APPEND PROPERTY INTERFACE_LINK_LIBRARIES OpenMP::OpenMP_CXX)
+        endif()
+    endif()
+    message(STATUS "Using local whisper.cpp from ${VIDEO2VEC_LOCAL_DEPS_DIR}")
+endif()
+
+# ONNX Runtime
+if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-1.18.0")
+    set(onnxruntime_ROOT "${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-1.18.0" CACHE PATH "" FORCE)
+    find_library(ONNXRUNTIME_LIB onnxruntime PATHS "${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-1.18.0/lib" NO_DEFAULT_PATH)
+    if(ONNXRUNTIME_LIB)
+        add_library(onnxruntime::onnxruntime SHARED IMPORTED)
+        set_target_properties(onnxruntime::onnxruntime PROPERTIES
+            IMPORTED_LOCATION "${ONNXRUNTIME_LIB}"
+            INTERFACE_INCLUDE_DIRECTORIES "${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-1.18.0/include"
+        )
+        message(STATUS "Using local ONNX Runtime from ${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-1.18.0")
+    endif()
+endif()
+
+# Tesseract (headers from source, library from system)
+if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/src/api")
+    set(_TESSERACT_LIB "")
+    if(EXISTS "/lib64/libtesseract.so.5.5")
+        set(_TESSERACT_LIB "/lib64/libtesseract.so.5.5")
+    elseif(EXISTS "/usr/lib64/libtesseract.so.5.5")
+        set(_TESSERACT_LIB "/usr/lib64/libtesseract.so.5.5")
+    endif()
+    if(_TESSERACT_LIB)
+        add_library(Tesseract::libtesseract SHARED IMPORTED)
+        set_target_properties(Tesseract::libtesseract PROPERTIES
+            IMPORTED_LOCATION "${_TESSERACT_LIB}"
+            INTERFACE_INCLUDE_DIRECTORIES "${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/include;${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/src/api;${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/src/ccutil;${VIDEO2VEC_LOCAL_DEPS_DIR}/leptonica-1.87.0;${VIDEO2VEC_LOCAL_DEPS_DIR}/leptonica-build/src"
+        )
+        message(STATUS "Using system libtesseract with local headers: ${_TESSERACT_LIB}")
+    endif()
 endif()
 
 find_package(onnxruntime QUIET)
@@ -171,13 +233,11 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/video2vecConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/video2vec
 )
-# Note: install(EXPORT) disabled when using FetchContent for dependencies.
-# Re-enable once all dependencies are found via find_package instead of FetchContent.
-# install(EXPORT video2vecTargets
-#     FILE video2vecTargets.cmake
-#     NAMESPACE video2vec::
-#     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/video2vec
-# )
+install(EXPORT video2vecTargets
+    FILE video2vecTargets.cmake
+    NAMESPACE video2vec::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/video2vec
+)
 
 message(STATUS "")
 message(STATUS "video2vec ${PROJECT_VERSION} configuration:")
