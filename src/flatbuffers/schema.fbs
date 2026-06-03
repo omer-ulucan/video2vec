@@ -1,0 +1,77 @@
+namespace video2vec.schema;
+
+table SourceMeta {
+  video_id:string;
+  file_path:string;
+  duration_ms:long;
+  width:int;
+  height:int;
+  fps:double;
+  sample_rate:int;
+  channels:int;
+}
+
+table Word {
+  t_ms:long;
+  dt_ms:long;
+  text:string;
+  confidence:double;
+}
+
+table OCRLine {
+  x:int;
+  y:int;
+  w:int;
+  h:int;
+  confidence:double;
+  text:string;
+  pii_flagged:bool;
+}
+
+table Embedding {
+  kind:int;
+  quant:int;
+  dim:int;
+  scale:double;
+  data:[byte];
+}
+
+table Frame {
+  ts_ms:long;
+  pts:long;
+  width:int;
+  height:int;
+  is_keyframe:bool;
+  ocr_lines:[OCRLine];
+  embeddings:[Embedding];
+  thumb_png:[byte];
+}
+
+table Window {
+  t0_ms:long;
+  t1_ms:long;
+  index:int;
+  transcript:string;
+  words:[Word];
+  frames:[Frame];
+  source_meta:SourceMeta;
+  metrics:WindowMetrics;
+}
+
+table WindowMetrics {
+  frame_count:int;
+  patch_count:int;
+  ocr_line_count:int;
+  word_count:int;
+  mean_ocr_confidence:double;
+  mean_embedding_norm:double;
+  processing_time_ms:long;
+}
+
+table WindowBatch {
+  windows:[Window];
+  version:string;
+  created_at:string;
+}
+
+root_type WindowBatch;
