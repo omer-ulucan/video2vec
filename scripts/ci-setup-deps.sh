@@ -71,6 +71,14 @@ else
 fi
 
 # ------------------------------------------------------------------
+# Ensure Python onnx package is available
+# ------------------------------------------------------------------
+if ! python3 -c "import onnx" 2>/dev/null; then
+    echo "--- Installing Python onnx package ---"
+    pip3 install onnx numpy protobuf
+fi
+
+# ------------------------------------------------------------------
 # Test models
 # ------------------------------------------------------------------
 if [[ ! -f "${MODELS_DIR}/ggml-tiny.bin" ]]; then
@@ -118,9 +126,8 @@ os.makedirs("tests/models", exist_ok=True)
 onnx.save(model, "tests/models/tiny_image.onnx")
 PYEOF
     else
-        echo "WARNING: Python/onnx not available, skipping tiny_image.onnx download"
-        # Create a placeholder empty file so the build doesn't fail on missing model
-        touch "${MODELS_DIR}/tiny_image.onnx"
+        echo "ERROR: Python/onnx not available. Install it: pip3 install onnx"
+        exit 1
     fi
 else
     echo "--- tiny_image.onnx already present ---"
@@ -149,8 +156,8 @@ os.makedirs("tests/models", exist_ok=True)
 onnx.save(model, "tests/models/tiny_embedding.onnx")
 PYEOF
     else
-        echo "WARNING: Python/onnx not available, skipping tiny_embedding.onnx"
-        touch "${MODELS_DIR}/tiny_embedding.onnx"
+        echo "ERROR: Python/onnx not available. Install it: pip3 install onnx"
+        exit 1
     fi
 else
     echo "--- tiny_embedding.onnx already present ---"
