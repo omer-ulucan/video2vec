@@ -25,7 +25,12 @@ if [[ ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.a" && ! -f "${DEPS_DIR}/whi
         -DWHISPER_BUILD_TESTS=OFF \
         -DWHISPER_BUILD_EXAMPLES=OFF \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_SHARED_LIBS=OFF \
+        -DGGML_AVX=OFF \
+        -DGGML_AVX2=OFF \
+        -DGGML_FMA=OFF \
+        -DGGML_F16C=OFF \
+        -DGGML_AVX512=OFF
     cmake --build "${DEPS_DIR}/whisper-build" --parallel $(nproc)
     echo "--- whisper.cpp build complete ---"
     ls -la "${DEPS_DIR}/whisper-build/src/"
