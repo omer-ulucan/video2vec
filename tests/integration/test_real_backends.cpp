@@ -46,9 +46,54 @@ TEST(RealBackends, WhisperInference) {
     auto audio = generate_sine_audio(440.0f, 2.0f, 16000);
     auto result = backend.transcribe(audio, 16000);
     ASSERT_TRUE(result.ok()) << result.error().message;
-    // We don't assert specific text because a sine wave won't produce meaningful speech,
-    // but the backend should process without error and return segments.
-    EXPECT_GE(result.value().segments.size(), 0);
+    // A sine wave carries no speech, so no text is asserted, but the backend
+    // must run to completion with the explicit language echoed back.
+    EXPECT_EQ(result.value().detected_language, "en");
+    EXPECT_DOUBLE_EQ(result.value().language_probability, 1.0);
+    for (const auto& seg : result.value().segments) {
+        EXPECT_LE(seg.t0_ms, seg.t1_ms);
+        for (const auto& w : seg.words) {
+            EXPECT_FALSE(w.text.empty());
+            EXPECT_GE(w.t_ms, seg.t0_ms);
+            EXPECT_GE(w.confidence, 0.0);
+            EXPECT_LE(w.confidence, 1.0);
+        }
+    }
+
+    EXPECT_FALSE(backend.transcribe(audio, 44100).ok());
+    EXPECT_FALSE(backend.transcribe(std::span<const float>(), 16000).ok());
+}
+
+// The CLI initializes whisper with language "auto". With detect_language
+// enabled whisper_full returned before decoding anything, so this path used
+// to yield zero segments and "auto" as the detected language.
+TEST(RealBackends, WhisperAutoLanguageStillTranscribes) {
+    core::Logger::initialize("test_whisper_auto");
+    asr::WhisperBackend backend;
+    std::string model_path = TESTS_DIR "/models/ggml-tiny.bin";
+    auto init = backend.initialize(model_path, "auto");
+    if (!init) {
+        GTEST_SKIP() << "Whisper model not available: " << init.error().message;
+    }
+    auto audio = generate_sine_audio(440.0f, 3.0f, 16000);
+    auto result = backend.transcribe(audio, 16000);
+    ASSERT_TRUE(result.ok()) << result.error().message;
+    EXPECT_NE(result.value().detected_language, "auto");
+    EXPECT_FALSE(result.value().detected_language.empty());
+    EXPECT_GE(result.value().language_probability, 0.0);
+    EXPECT_LE(result.value().language_probability, 1.0);
+
+    // Streaming: partial chunks return a placeholder, the final chunk transcribes.
+    auto partial = backend.transcribe_stream(std::span<const float>(audio.data(), 16000), 16000, false);
+    ASSERT_TRUE(partial.ok());
+    EXPECT_EQ(partial.value().full_transcript, "[streaming...]");
+    auto final_result = backend.transcribe_stream(std::span<const float>(audio.data() + 16000, audio.size() - 16000), 16000, true);
+    ASSERT_TRUE(final_result.ok()) << final_result.error().message;
+    EXPECT_NE(final_result.value().detected_language, "auto");
+
+    asr::WhisperBackend unloaded;
+    EXPECT_FALSE(unloaded.transcribe_stream(audio, 16000, false).ok());
+    EXPECT_FALSE(backend.initialize(model_path, "not-a-language").ok());
 }
 
 // ------------------------------------------------------------------
