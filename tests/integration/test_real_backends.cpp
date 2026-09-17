@@ -150,8 +150,69 @@ TEST(RealBackends, ONNXEmbedding) {
     std::vector<std::vector<uint8_t>> images = {generate_gray_image(64, 64)};
     auto img_result = img_backend.encode_images(images, 64, 64);
     ASSERT_TRUE(img_result.ok()) << img_result.error().message;
-    EXPECT_EQ(img_result.value().size(), 1);
+    ASSERT_EQ(img_result.value().size(), 1u);
     EXPECT_EQ(img_result.value()[0].dim, 512);
+    EXPECT_EQ(img_result.value()[0].int8_data.size(), 512u);
+    EXPECT_GT(img_result.value()[0].int8_scale, 0.0f);
+
+    // A wrong-sized buffer or a shape the model does not accept is an error,
+    // not a silently zero-padded tensor.
+    std::vector<std::vector<uint8_t>> short_image = {std::vector<uint8_t>(10, 0)};
+    EXPECT_FALSE(img_backend.encode_images(short_image, 64, 64).ok());
+    std::vector<std::vector<uint8_t>> other_size = {generate_gray_image(32, 32)};
+    EXPECT_FALSE(img_backend.encode_images(other_size, 32, 32).ok());  // model input is fixed at 64x64
+    EXPECT_FALSE(img_backend.encode_images(images, 0, 64).ok());
+}
+
+// initialize -> unload -> initialize used to leave stale name tables behind,
+// so every Run() after a re-initialize failed.
+TEST(RealBackends, ONNXReinitializeAndFloatStorage) {
+    core::Logger::initialize("test_onnx_reinit");
+    embedding::ONNXBackend backend;
+    std::string img_model = TESTS_DIR "/models/tiny_image.onnx";
+    embedding::EmbeddingConfig cfg{};
+    cfg.visual_dim = 512;
+    cfg.storage_quant = embedding::Quantization::FP32;
+    auto init = backend.initialize(img_model, cfg);
+    if (!init) {
+        GTEST_SKIP() << "ONNX image model not available: " << init.error().message;
+    }
+    backend.unload();
+    EXPECT_FALSE(backend.is_loaded());
+    EXPECT_FALSE(backend.encode_images(std::vector<std::vector<uint8_t>>{generate_gray_image(64, 64)}, 64, 64).ok());
+    ASSERT_TRUE(backend.initialize(img_model, cfg).ok());
+    ASSERT_TRUE(backend.initialize(img_model, cfg).ok());  // re-initialize without unload
+    std::vector<std::vector<uint8_t>> images = {generate_gray_image(64, 64), generate_gray_image(64, 64)};
+    auto result = backend.encode_images(images, 64, 64);
+    ASSERT_TRUE(result.ok()) << result.error().message;
+    ASSERT_EQ(result.value().size(), 2u);
+    EXPECT_EQ(result.value()[0].float_data.size(), 512u);
+    EXPECT_TRUE(result.value()[0].int8_data.empty());
+    EXPECT_EQ(result.value()[0].float_data, result.value()[1].float_data);
+    EXPECT_EQ(embedding::to_float(result.value()[0]), result.value()[0].float_data);
+
+    // A text encoder that wants token ids cannot be driven without a tokenizer.
+    EXPECT_FALSE(backend.initialize("/nonexistent/model.onnx", cfg).ok());
+    EXPECT_FALSE(backend.is_loaded());
+}
+
+TEST(RealBackends, Int8QuantizationRoundTripKeepsScale) {
+    std::vector<float> v = {0.5f, -0.25f, 0.125f, 0.0f, -1.5f, 3.0f};
+    float scale = 0.0f;
+    auto q = embedding::quantize_to_int8(v, scale);
+    ASSERT_EQ(q.size(), v.size());
+    EXPECT_FLOAT_EQ(scale, 3.0f);
+    EXPECT_EQ(q[5], 127);
+    auto back = embedding::dequantize_from_int8(q, scale);
+    for (size_t i = 0; i < v.size(); ++i) EXPECT_NEAR(back[i], v[i], 3.0f / 127.0f);
+    embedding::Embedding emb{};
+    emb.int8_data = q;
+    emb.int8_scale = scale;
+    auto restored = embedding::to_float(emb);
+    ASSERT_EQ(restored.size(), v.size());
+    EXPECT_NEAR(restored[4], -1.5f, 3.0f / 127.0f);
+    float zero_scale = 1.0f;
+    EXPECT_TRUE(embedding::quantize_to_int8(std::span<const float>(), zero_scale).empty());
 }
 
 // ------------------------------------------------------------------
