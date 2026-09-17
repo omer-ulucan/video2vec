@@ -25,7 +25,10 @@ struct ASRSegment {
 struct ASRResult {
     std::vector<ASRSegment> segments;
     std::string full_transcript;
+    // 1.0 when the language was given explicitly; the detector's probability
+    // for detected_language when the backend was initialized with "auto".
     double language_probability = 1.0;
+    // ISO 639-1 code of the language actually used for decoding.
     std::string detected_language;
 };
 
