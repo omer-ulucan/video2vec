@@ -18,6 +18,12 @@ struct SelectionConfig {
     double cosine_threshold = 0.995;
 };
 
+// Ranks the window's frames and returns up to max_frames_per_window of them
+// in timestamp order, dropping near-duplicates (SSIM above ssim_threshold).
+// Frames with score == 0 are scored as
+//   entropy_weight * entropy / 8 + ocr_weight * ocr_density,
+// computing entropy from rgb_data when it is unset; the returned frames
+// carry the computed entropy and score.
 std::vector<Frame> select_frames(const std::vector<Frame>& window_frames, const SelectionConfig& config);
 double compute_entropy(const std::vector<uint8_t>& rgb_data, int width, int height);
 double compute_ssim(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b, int width, int height);

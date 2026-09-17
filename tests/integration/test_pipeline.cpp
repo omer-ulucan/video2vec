@@ -30,7 +30,8 @@ TEST(Pipeline, FrameSelectionDedup) {
     cfg.min_frames_per_window = 1;
     cfg.ssim_threshold = 0.99;
     auto selected = vision::select_frames(frames, cfg);
-    EXPECT_LE(selected.size(), 1);
+    ASSERT_EQ(selected.size(), 1u);      // identical pixels: exactly one survives
+    EXPECT_EQ(selected[0].pts_ms, 0);    // the higher-entropy frame wins
 }
 
 TEST(Pipeline, PatchExtraction) {
