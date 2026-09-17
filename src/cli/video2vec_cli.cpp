@@ -90,7 +90,6 @@ int main(int argc, char** argv) {
             return 1;
         }
         auto video_props = demuxer.video_properties();
-        auto audio_props = demuxer.audio_properties();
         int64_t duration_ms = static_cast<int64_t>(video_props.fps > 0 && video_props.frame_count > 0
             ? (video_props.frame_count / video_props.fps * 1000.0) : 0);
         core::Logger::info("Duration: " + std::to_string(duration_ms) + " ms", {});

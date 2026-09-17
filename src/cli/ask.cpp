@@ -16,7 +16,6 @@ int main(int argc, char** argv) {
         ("topk", "Top-K results", cxxopts::value<int>()->default_value("8"))
         ("merge-by-time", "Merge results by time", cxxopts::value<bool>()->default_value("true"))
         ("expand-context", "Expand context", cxxopts::value<bool>()->default_value("false"))
-        ("dim", "Embedding dimension", cxxopts::value<int>()->default_value("512"))
         ("h,help", "Print usage")
         ("v,version", "Print version");
     auto result = options.parse(argc, argv);
@@ -28,7 +27,6 @@ int main(int argc, char** argv) {
     int topk = result["topk"].as<int>();
     bool merge_by_time = result["merge-by-time"].as<bool>();
     bool expand_context = result["expand-context"].as<bool>();
-    int dim = result["dim"].as<int>();
     if (db_path.empty() || query_text.empty()) { std::cerr << "Error: --db and --q are required\n"; return 1; }
     auto store = std::make_shared<index::FAISSStore>();
     auto load_result = store->load(db_path);

@@ -4,6 +4,7 @@
 #include "video2vec/embedding/embedding_backend.hpp"
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 

@@ -1,6 +1,7 @@
 #include "video2vec/query/query_engine.hpp"
 #include "video2vec/core/logger.hpp"
 #include <algorithm>
+#include <cstdlib>
 
 namespace video2vec::query {
 
