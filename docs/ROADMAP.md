@@ -1,36 +1,28 @@
 # video2vec Roadmap
 
-## v0.1.0 (Current)
+## v0.2.0 (Current)
 
-- [x] Core infrastructure (logging, config, threading, metrics)
-- [x] FFmpeg demux/decode wrapper
-- [x] PTS synchronization and drift correction
-- [x] Windowing (fixed 45s + 5s overlap)
-- [x] ASR backend interface + whisper.cpp integration
-- [x] OCR backend interface + Tesseract integration
-- [x] Frame selection (entropy, scene, OCR density)
-- [x] Patch extraction (libvips/fallback)
-- [x] Embedding backend interface + ONNX integration
-- [x] FlatBuffers packaging
-- [x] FAISS index integration (with fallback)
-- [x] Query engine (semantic, hybrid, time-aware)
-- [x] CLI tools (video2vec, vec2index, ask)
-- [x] Tests (unit + integration)
-- [x] Examples (basic_decode, basic_pipeline)
-- [x] Benchmarks
-- [x] CI/CD skeleton
-
-## v0.2.0
-
-- [ ] Full whisper.cpp integration (word timestamps, VAD)
-- [ ] Full Tesseract integration (eng+tur, bbox, confidence)
-- [ ] libvips streaming visual pipeline
-- [ ] ONNX Runtime with real CLIP/ViT models
-- [ ] GPU acceleration (CUDA, TensorRT)
-- [ ] Incremental index updates
-- [ ] Schema migration support
+- [x] Re-audit: crashes, memory-safety and correctness fixes across every module (see AUDIT.md)
+- [x] Codec-parameter decoding path (H.264/AAC in containers), real audio resampling
+- [x] whisper.cpp: auto language detection that transcribes, word-level timestamps
+- [x] Tesseract: per-line text with bounding boxes and confidence
+- [x] Frame scoring/selection, patch extraction with full grid coverage, built-in PNG encoder
+- [x] Versioned, bounds-checked `.vec` container carrying words, OCR lines, embeddings, timings
+- [x] Index: correct cosine/L2 ranking, full persistence, index rebuilt on load
+- [x] CLI pipeline that really decodes, windows, transcribes, OCRs and embeds; `vec2index`/`ask`/`qa` usable end to end
+- [x] Tests that exercise the backends: unit suites per module, e2e on a generated fixture, CLI smoke test, ASan/UBSan in CI
 
 ## v0.3.0
+
+- [ ] Real text tokenizer (CLIP BPE / WordPiece) and CLIP image preprocessing (mean/std, center crop)
+- [ ] Public decoding API (the decoder classes are internal to the CLI today)
+- [ ] whisper.cpp VAD and multi-language (e.g. eng+tur) OCR defaults
+- [ ] libvips streaming visual pipeline
+- [ ] GPU acceleration (CUDA, TensorRT)
+- [ ] Incremental index updates, schema migration support
+- [ ] Thread-safe stores and backends
+
+## v0.4.0
 
 - [ ] Real-time streaming pipeline
 - [ ] Multi-video batch processing
