@@ -180,4 +180,20 @@ else
     echo "--- tiny_embedding.onnx already present ---"
 fi
 
+# ------------------------------------------------------------------
+# Sample video fixture (640x480 H.264 test pattern + 440 Hz AAC tone)
+# ------------------------------------------------------------------
+DATA_DIR="${ROOT_DIR}/tests/data"
+mkdir -p "${DATA_DIR}"
+if [[ ! -f "${DATA_DIR}/sample_video.mp4" ]]; then
+    echo "--- Generating tests/data/sample_video.mp4 ---"
+    if ! command -v ffmpeg &>/dev/null; then
+        echo "ERROR: ffmpeg CLI not found; install it (apt-get install ffmpeg) to generate the test fixture"
+        exit 1
+    fi
+    ffmpeg -y -loglevel error -f lavfi -i "testsrc=size=640x480:rate=25"         -f lavfi -i "sine=frequency=440:sample_rate=44100" -t 6         -c:v libx264 -pix_fmt yuv420p -c:a aac "${DATA_DIR}/sample_video.mp4"
+else
+    echo "--- sample video already present ---"
+fi
+
 echo "=== Dependency setup complete ==="

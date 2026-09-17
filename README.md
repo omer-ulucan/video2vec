@@ -32,8 +32,8 @@ Designed to transfer every moment of a lecture/tutorial video to LLMs and vector
 
 - **Opaque FFmpeg handles:** No third-party type leaks in public API
 - **CMake `install(EXPORT)` support:** Use `find_package(video2vec)` in your projects
-- **Comprehensive test suite:** 85 tests covering unit, integration, and SDK consumer scenarios
-- **Production readiness audit:** Zero critical/high severity issues
+- **Test suite:** unit, integration, real-backend, end-to-end and CLI smoke tests, run under ASan/UBSan in CI
+- **Audited:** see [AUDIT.md](AUDIT.md) for the findings of the 2026-09 re-audit and what remains open
 
 ## Quick Start
 
@@ -48,8 +48,17 @@ cd video2vec
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel $(nproc)
 
-# Process a video
-./build/video2vec --in lecture.mp4 --out lecture.vec --win 45000 --overlap 5000
+# Fetch/build whisper.cpp, ONNX Runtime, Tesseract headers, test models and the sample video
+scripts/ci-setup-deps.sh
+
+# Process a video: ASR (whisper), OCR (Tesseract, --ocr-lang eng by default) and
+# visual patch embeddings (ONNX image model) per 45 s window with 5 s overlap
+./build/src/cli/video2vec --in lecture.mp4 --out lecture.vec --win 45000 --overlap 5000 \n    --whisper-model models/ggml-base.bin --embedding-model models/image_encoder.onnx
+
+# Turn it into LLM context, or index it and query it
+./build/src/cli/load-to-llm --vec lecture.vec --format markdown
+./build/src/cli/vec2index --vec lecture.vec --out lecture.idx --model models/text_encoder.onnx --dim 512
+./build/src/cli/ask --db lecture.idx --model models/text_encoder.onnx -q "gradient descent"
 ```
 
 ### Run Tests
@@ -99,13 +108,15 @@ asr.initialize("path/to/model.bin", "en");
 - CMake 3.25+
 - FFmpeg 6+ development libraries
 
-**Optional (for full functionality):**
+**Required backends** (CMake fails without them; `scripts/ci-setup-deps.sh` downloads/builds them into `deps/`):
 - whisper.cpp (speech recognition)
 - ONNX Runtime (embeddings)
 - Tesseract + Leptonica (OCR)
-- libvips (vision processing)
-- FAISS (vector search)
-- FlatBuffers (serialization)
+
+**Optional:**
+- libvips (PNG encoding; a built-in encoder is used otherwise)
+- FAISS (vector search; a linear-scan store is used otherwise)
+- ffmpeg CLI (generates the test fixture)
 
 ### Ubuntu/Debian
 
@@ -198,11 +209,12 @@ video2vec/
 
 ## Testing
 
-video2vec includes a comprehensive test suite with **85 tests** covering:
+The ctest suite (run `scripts/ci-setup-deps.sh` first, so the models and the generated sample video exist) covers:
 
-- **Unit tests:** Core utilities, FFmpeg wrappers, backends
-- **Integration tests:** End-to-end pipeline, real backend inference
-- **SDK consumer tests:** Validates `find_package(video2vec)` works after installation
+- **Unit tests:** core, ffmpeg wrappers, vision, `.vec` packager, index/query, sync, windowing
+- **Integration tests:** pipeline pieces, real whisper/Tesseract/ONNX inference, end-to-end decode of the sample video
+- **CLI smoke test:** `video2vec` -> `load-to-llm` -> `vec2index` -> `ask`/`qa` on the sample video, including error paths
+- **SDK consumer tests:** validates `find_package(video2vec)` works after installation
 
 ### Running Tests
 
@@ -235,12 +247,12 @@ This project has undergone a comprehensive **production readiness audit** coveri
 
 - ✅ Memory management (no leaks, proper cleanup)
 - ✅ Exception safety (RAII, strong exception guarantees)
-- ✅ Race conditions (thread-safe data structures)
+- ✅ Concurrency primitives (ThreadPool, CancellationToken); backends and stores are single-threaded objects
 - ✅ ABI/API compatibility (stable public interfaces)
 - ✅ Error handling (comprehensive validation)
-- ✅ Test coverage (85 tests, all passing)
+- ✅ Test coverage (all suites pass, also under ASan/UBSan)
 
-**Result:** Zero critical or high severity issues remaining.
+The 2026-09 re-audit found and fixed defects the earlier audit had signed off (see AUDIT.md); the remaining known limitations are listed there.
 
 See [AUDIT.md](AUDIT.md) for the full audit report.
 

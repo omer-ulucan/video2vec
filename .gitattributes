@@ -1,0 +1,9 @@
+# Normalize line endings: the project is built on Linux (shell scripts, CMake)
+# and .editorconfig mandates LF, so check out LF everywhere, including Windows.
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.jpg binary
+*.mp4 binary
+*.onnx binary
+*.bin binary
