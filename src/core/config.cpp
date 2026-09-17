@@ -14,6 +14,9 @@ namespace {
     ConfigValue yaml_to_value(const YAML::Node& node) {
         switch (node.Type()) {
         case YAML::NodeType::Scalar: {
+            // yaml-cpp tags quoted scalars with "!" (non-plain). Those are
+            // strings by definition: "1.0" and "007" must not become numbers.
+            if (node.Tag() == "!") return node.as<std::string>();
             try { return node.as<int64_t>(); } catch (...) {}
             try { return node.as<double>(); } catch (...) {}
             try { return node.as<bool>(); } catch (...) {}
@@ -55,6 +58,17 @@ namespace {
         }
         return ConfigNode();
     }
+
+    template <typename F>
+    Config parse_or_throw(const std::string& what, F&& parse) {
+        try {
+            return parse();
+        } catch (const std::runtime_error&) {
+            throw;
+        } catch (const std::exception& e) {
+            throw std::runtime_error("failed to parse " + what + ": " + e.what());
+        }
+    }
 }
 
 bool ConfigNode::has(const std::string& key) const {
@@ -93,14 +107,21 @@ const std::vector<ConfigNode>& ConfigNode::as_array() const {
     return std::get<std::vector<ConfigNode>>(value_);
 }
 
-void ConfigNode::set(const std::string& key, ConfigValue value) { (*this)[key] = ConfigNode(std::move(value)); }
+void ConfigNode::set(const std::string& key, ConfigValue value) {
+    // Assign the variant directly instead of moving a temporary ConfigNode;
+    // the extra variant move trips a -Wmaybe-uninitialized false positive in GCC 13.
+    (*this)[key].value_ = std::move(value);
+}
 void ConfigNode::push(ConfigValue value) {
     if (!is_array()) value_ = std::vector<ConfigNode>{};
-    std::get<std::vector<ConfigNode>>(value_).push_back(ConfigNode(std::move(value)));
+    auto& items = std::get<std::vector<ConfigNode>>(value_);
+    items.emplace_back();
+    items.back().value_ = std::move(value);  // see set(): avoids a temporary ConfigNode
 }
 
 void ConfigNode::merge(const ConfigNode& other) {
-    if (!other.is_map() || !is_map()) return;
+    if (!other.is_map()) return;
+    if (!is_map()) value_ = std::map<std::string, ConfigNode>{};
     auto& this_map = std::get<std::map<std::string, ConfigNode>>(value_);
     for (const auto& [key, val] : other.as_map()) {
         if (val.is_map() && this_map[key].is_map()) this_map[key].merge(val);
@@ -109,19 +130,25 @@ void ConfigNode::merge(const ConfigNode& other) {
 }
 
 Config Config::from_yaml(const std::string& path) {
-    Config cfg;
-    cfg.root_ = yaml_to_node(YAML::LoadFile(path));
-    return cfg;
+    std::ifstream file(path);
+    if (!file) throw std::runtime_error("cannot open YAML config: " + path);
+    return parse_or_throw("YAML config '" + path + "'", [&] {
+        Config cfg;
+        cfg.root_ = yaml_to_node(YAML::LoadFile(path));
+        return cfg;
+    });
 }
 
 Config Config::from_json(const std::string& path) {
     std::ifstream file(path);
     if (!file) throw std::runtime_error("cannot open JSON config: " + path);
-    nlohmann::json j;
-    file >> j;
-    Config cfg;
-    cfg.root_ = json_to_node(j);
-    return cfg;
+    return parse_or_throw("JSON config '" + path + "'", [&] {
+        nlohmann::json j;
+        file >> j;
+        Config cfg;
+        cfg.root_ = json_to_node(j);
+        return cfg;
+    });
 }
 
 Config Config::from_toml(const std::string& path) {
@@ -131,16 +158,21 @@ Config Config::from_toml(const std::string& path) {
 
 Config Config::from_string(const std::string& content, const std::string& format_hint) {
     if (format_hint == "json") {
-        Config cfg;
-        cfg.root_ = json_to_node(nlohmann::json::parse(content));
-        return cfg;
+        return parse_or_throw("JSON string", [&] {
+            Config cfg;
+            cfg.root_ = json_to_node(nlohmann::json::parse(content));
+            return cfg;
+        });
     }
-    Config cfg;
-    cfg.root_ = yaml_to_node(YAML::Load(content));
-    return cfg;
+    return parse_or_throw("YAML string", [&] {
+        Config cfg;
+        cfg.root_ = yaml_to_node(YAML::Load(content));
+        return cfg;
+    });
 }
 
 bool Config::has(const std::string& path) const {
+    if (path.empty()) return false;
     size_t pos = 0;
     const ConfigNode* node = &root_;
     while (pos < path.size()) {
@@ -155,6 +187,7 @@ bool Config::has(const std::string& path) const {
 }
 
 const ConfigNode& Config::get(const std::string& path) const {
+    if (path.empty()) throw std::out_of_range("config path is empty");
     size_t pos = 0;
     const ConfigNode* node = &root_;
     while (pos < path.size()) {
@@ -169,6 +202,7 @@ const ConfigNode& Config::get(const std::string& path) const {
 }
 
 void Config::set(const std::string& path, ConfigValue value) {
+    if (path.empty()) throw std::invalid_argument("config path is empty");
     size_t pos = 0;
     ConfigNode* node = &root_;
     while (pos < path.size()) {
