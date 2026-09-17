@@ -111,8 +111,74 @@ TEST(RealBackends, TesseractOCR) {
     auto image = generate_gray_image(200, 50);
     auto result = backend.recognize(image, 200, 50, 3);
     ASSERT_TRUE(result.ok()) << result.error().message;
-    // Gray image has no text, so result may be empty, but processing should succeed.
-    EXPECT_GE(result.value().mean_confidence, 0.0);
+    // A flat gray image has no text: no lines, and therefore no confidence.
+    EXPECT_EQ(result.value().image_width, 200);
+    EXPECT_EQ(result.value().image_height, 50);
+    EXPECT_TRUE(result.value().lines.empty());
+    EXPECT_DOUBLE_EQ(result.value().mean_confidence, 0.0);
+
+    // Single-channel and RGBA inputs are accepted too.
+    std::vector<uint8_t> gray1(200 * 50, 200);
+    EXPECT_TRUE(backend.recognize(gray1, 200, 50, 1).ok());
+    std::vector<uint8_t> rgba(200 * 50 * 4, 200);
+    EXPECT_TRUE(backend.recognize(rgba, 200, 50, 4).ok());
+
+    // Buffers that are too short used to be zero-filled and OCR'd as black.
+    std::vector<uint8_t> short_buf(100, 200);
+    auto short_result = backend.recognize(short_buf, 200, 50, 3);
+    ASSERT_FALSE(short_result.ok());
+    EXPECT_EQ(short_result.error().code, core::make_error_code(core::ErrorCode::InvalidArgument));
+    EXPECT_FALSE(backend.recognize(image, 200, 50, 2).ok());
+    EXPECT_FALSE(backend.recognize(image, 0, 50, 3).ok());
+
+    backend.unload();
+    EXPECT_FALSE(backend.is_loaded());
+    EXPECT_FALSE(backend.recognize(image, 200, 50, 3).ok());
+}
+
+// Renders a crude block-letter "HI" into an RGB image so the iterator path
+// (per-line text, bbox, confidence) can be checked without font rendering.
+static std::vector<uint8_t> render_hi(int width, int height) {
+    std::vector<uint8_t> img(static_cast<size_t>(width) * height * 3, 255);
+    auto fill = [&](int x0, int y0, int w, int h) {
+        for (int y = y0; y < y0 + h; ++y)
+            for (int x = x0; x < x0 + w; ++x) {
+                size_t i = (static_cast<size_t>(y) * width + x) * 3;
+                img[i] = img[i + 1] = img[i + 2] = 0;
+            }
+    };
+    // H: two verticals and a bar; I: one vertical with serifs. 60px tall glyphs.
+    fill(40, 30, 12, 60); fill(88, 30, 12, 60); fill(40, 54, 60, 12);
+    fill(130, 30, 40, 10); fill(144, 30, 12, 60); fill(130, 80, 40, 10);
+    return img;
+}
+
+TEST(RealBackends, TesseractLinesCarryBoundingBoxes) {
+    core::Logger::initialize("test_ocr_lines");
+    ocr::TesseractBackend backend;
+    auto init = backend.initialize("eng", "");
+    if (!init) {
+        GTEST_SKIP() << "Tesseract not available: " << init.error().message;
+    }
+    const int w = 220, h = 120;
+    auto image = render_hi(w, h);
+    auto result = backend.recognize(image, w, h, 3);
+    ASSERT_TRUE(result.ok()) << result.error().message;
+    ASSERT_FALSE(result.value().lines.empty()) << "no text line recognized";
+    for (const auto& line : result.value().lines) {
+        EXPECT_FALSE(line.text.empty());
+        EXPECT_GE(line.bbox.x, 0);
+        EXPECT_GE(line.bbox.y, 0);
+        EXPECT_GT(line.bbox.w, 0);
+        EXPECT_GT(line.bbox.h, 0);
+        EXPECT_LE(line.bbox.x + line.bbox.w, w);
+        EXPECT_LE(line.bbox.y + line.bbox.h, h);
+        EXPECT_GE(line.confidence, 0.0);
+        EXPECT_LE(line.confidence, 1.0);
+        // The line box must be tighter than the whole image (the old code returned the full frame).
+        EXPECT_LT(line.bbox.w * line.bbox.h, w * h);
+    }
+    EXPECT_GT(result.value().mean_confidence, 0.0);
 }
 
 // ------------------------------------------------------------------
