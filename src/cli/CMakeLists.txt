@@ -5,6 +5,7 @@ add_executable(load-to-llm load_to_llm.cpp)
 add_executable(qa qa.cpp)
 
 target_link_libraries(video2vec-cli PRIVATE video2vec::ffmpeg video2vec::sync video2vec::windowing video2vec::asr video2vec::ocr video2vec::vision video2vec::embedding video2vec::flatbuffers cxxopts::cxxopts)
+target_include_directories(video2vec-cli PRIVATE ${VIDEO2VEC_PRIVATE_INCLUDE_DIR})
 target_link_libraries(vec2index PRIVATE video2vec::index video2vec::embedding video2vec::flatbuffers video2vec::query cxxopts::cxxopts)
 target_link_libraries(ask PRIVATE video2vec::index video2vec::embedding video2vec::query cxxopts::cxxopts)
 target_link_libraries(load-to-llm PRIVATE video2vec::flatbuffers cxxopts::cxxopts nlohmann_json::nlohmann_json)
