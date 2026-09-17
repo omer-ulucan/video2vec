@@ -10,6 +10,9 @@
 #include <queue>
 #include <stdexcept>
 #include <thread>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace video2vec::core {
@@ -22,11 +25,17 @@ public:
     ThreadPool& operator=(const ThreadPool&) = delete;
     ThreadPool(ThreadPool&&) = delete;
     ThreadPool& operator=(ThreadPool&&) = delete;
+    // Queues f(args...) and returns its future. Arguments are copied/moved
+    // into the task (no std::bind: it decay-copies through std::result_of,
+    // which is deprecated and warns under clang).
     template <typename F, typename... Args>
-    auto submit(F&& f, Args&&... args) -> std::future<std::invoke_result_t<F, Args...>> {
-        using ReturnType = std::invoke_result_t<F, Args...>;
+    auto submit(F&& f, Args&&... args) -> std::future<std::invoke_result_t<std::decay_t<F>&, std::decay_t<Args>&...>> {
+        using ReturnType = std::invoke_result_t<std::decay_t<F>&, std::decay_t<Args>&...>;
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
-            std::bind(std::forward<F>(f), std::forward<Args>(args)...));
+            [fn = std::decay_t<F>(std::forward<F>(f)),
+             bound = std::make_tuple(std::decay_t<Args>(std::forward<Args>(args))...)]() mutable -> ReturnType {
+                return std::apply(fn, bound);
+            });
         std::future<ReturnType> result = task->get_future();
         {
             std::unique_lock<std::mutex> lock(queue_mutex_);
