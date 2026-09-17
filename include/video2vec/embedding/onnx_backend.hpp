@@ -5,6 +5,18 @@
 
 namespace video2vec::embedding {
 
+// ONNX Runtime embedding backend.
+//
+// Supported models have exactly one input tensor and at least one output
+// tensor; the first output is taken as the embedding.
+//  - encode_images(): float [N,3,H,W] input fed with packed RGB scaled to
+//    [0, 1]. No model-specific normalization (e.g. CLIP mean/std), resize or
+//    center-crop is applied; callers must supply patches at the model's size.
+//  - encode_text(): float [N, dim] input. This build ships no tokenizer, so
+//    text is encoded as a placeholder character-level feature vector
+//    (byte/255 per position). Models with int64 token-id inputs (CLIP,
+//    sentence-transformers) are rejected with ErrorCode::Unsupported rather
+//    than being fed meaningless data.
 class ONNXBackend : public IEmbeddingBackend {
 public:
     ONNXBackend();
