@@ -18,6 +18,8 @@ std::vector<Patch> extract_patches(const Frame& frame, const std::vector<ocr::OC
 std::vector<uint8_t> crop_rgb(const std::vector<uint8_t>& rgb_data, int src_width, int src_height,
                                int x, int y, int w, int h);
 std::vector<uint8_t> encode_png(const std::vector<uint8_t>& rgb_data, int width, int height);
+// Bilinear resize of packed RGB to out_width x out_height; empty on invalid input.
+std::vector<uint8_t> resize_rgb(const std::vector<uint8_t>& rgb_data, int width, int height, int out_width, int out_height);
 ocr::BBox expand_bbox(const ocr::BBox& bbox, int img_width, int img_height, double margin_percent);
 
 } // namespace video2vec::vision

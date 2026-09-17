@@ -28,7 +28,7 @@ namespace {
         w.ocr_lines.push_back(line);
         embedding::Embedding e8{};
         e8.type = embedding::EmbeddingType::Patch; e8.quant = embedding::Quantization::INT8; e8.dim = 4;
-        e8.int8_scale = 2.5f; e8.int8_data = {127, -128, 0, 64};
+        e8.int8_scale = 2.5f; e8.int8_data = {127, -128, 0, 64}; e8.pts_ms = 47250;
         w.embeddings.push_back(e8);
         embedding::Embedding e32{};
         e32.type = embedding::EmbeddingType::Global; e32.quant = embedding::Quantization::FP32; e32.dim = 3;
@@ -87,6 +87,7 @@ TEST(Packager, RoundTripPreservesEveryField) {
     EXPECT_EQ(w.embeddings[0].quant, embedding::Quantization::INT8);
     EXPECT_EQ(w.embeddings[0].dim, 4);
     EXPECT_FLOAT_EQ(w.embeddings[0].int8_scale, 2.5f);
+    EXPECT_EQ(w.embeddings[0].pts_ms, 47250);
     EXPECT_EQ(w.embeddings[0].int8_data, src.embeddings[0].int8_data);
     EXPECT_EQ(w.embeddings[1].quant, embedding::Quantization::FP32);
     EXPECT_EQ(w.embeddings[1].float_data, src.embeddings[1].float_data);

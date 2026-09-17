@@ -159,6 +159,7 @@ core::Result<std::vector<uint8_t>> package_windows(const std::vector<PackagedWin
             write_u8(buffer, static_cast<uint8_t>(emb.type));
             write_u8(buffer, static_cast<uint8_t>(emb.quant));
             write_u32(buffer, static_cast<uint32_t>(emb.dim));
+            write_u64(buffer, static_cast<uint64_t>(emb.pts_ms));
             write_f32(buffer, emb.int8_scale);
             write_bytes(buffer, reinterpret_cast<const uint8_t*>(emb.int8_data.data()), emb.int8_data.size());
             write_u32(buffer, static_cast<uint32_t>(emb.float_data.size()));
@@ -191,7 +192,7 @@ core::Result<std::vector<PackagedWindow>> unpack_windows(const std::vector<uint8
     constexpr size_t kMinWord = 8 + 8 + 4 + 8;
     constexpr size_t kMinFrame = 8 + 4 + 4 + 1 + 8 + 8 + 8 + 4;
     constexpr size_t kMinOcr = 4 * 4 + 4 + 8 + 1;
-    constexpr size_t kMinEmbedding = 1 + 1 + 4 + 4 + 4 + 4;
+    constexpr size_t kMinEmbedding = 1 + 1 + 4 + 8 + 4 + 4 + 4;
 
     uint32_t num_windows = 0;
     if (!in.count(num_windows, kMinWindow)) return decode_error<std::vector<PackagedWindow>>(in.error());
@@ -260,6 +261,7 @@ core::Result<std::vector<PackagedWindow>> unpack_windows(const std::vector<uint8
             uint8_t type = 0, quant = 0;
             uint32_t dim = 0;
             in.u8(type); in.u8(quant); in.u32(dim);
+            in.i64(emb.pts_ms);
             in.f32(emb.int8_scale);
             std::vector<uint8_t> int8_bytes;
             in.bytes(int8_bytes);

@@ -2,6 +2,7 @@
 
 #include "video2vec/embedding/embedding_backend.hpp"
 #include <memory>
+#include <utility>
 
 namespace video2vec::embedding {
 
@@ -29,6 +30,9 @@ public:
     void unload() override;
     [[nodiscard]] bool is_loaded() const override;
     [[nodiscard]] std::string name() const override { return "onnxruntime"; }
+    // Static [width, height] the loaded image model expects (input shape
+    // [N,3,H,W]); {0, 0} when unloaded or when the dimensions are dynamic.
+    [[nodiscard]] std::pair<int, int> image_input_size() const;
 private:
     class Impl;
     std::unique_ptr<Impl> impl_;
