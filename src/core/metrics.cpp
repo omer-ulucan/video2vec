@@ -52,7 +52,10 @@ double Histogram::percentile(double p) const {
     if (values_.empty()) return 0.0;
     std::vector<double> sorted = values_;
     std::sort(sorted.begin(), sorted.end());
-    size_t idx = static_cast<size_t>(p * sorted.size());
+    // p is a fraction in [0, 1]; a negative p would convert to a huge size_t.
+    if (!(p > 0.0)) p = 0.0;
+    if (p > 1.0) p = 1.0;
+    size_t idx = static_cast<size_t>(p * static_cast<double>(sorted.size()));
     if (idx >= sorted.size()) idx = sorted.size() - 1;
     return sorted[idx];
 }
