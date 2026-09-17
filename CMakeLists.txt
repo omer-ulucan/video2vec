@@ -21,18 +21,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(GNUInstallDirs)
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic)
-    if(WARNINGS_AS_ERRORS)
-        add_compile_options(-Werror)
-    endif()
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    add_compile_options(/W4 /permissive-)
-    if(WARNINGS_AS_ERRORS)
-        add_compile_options(/WX)
-    endif()
-endif()
-
 if(ENABLE_ASAN AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
     add_link_options(-fsanitize=address)
@@ -193,6 +181,21 @@ find_package(onnxruntime QUIET)
 find_package(faiss QUIET)
 find_package(FlatBuffers QUIET)
 find_package(Tesseract QUIET)
+
+# Warning flags are added after the third-party section so they apply only
+# to this project's directories: subdirectories added by FetchContent above
+# do not inherit them, which keeps -Werror from failing on yaml-cpp/spdlog.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Wall -Wextra -Wpedantic)
+    if(WARNINGS_AS_ERRORS)
+        add_compile_options(-Werror)
+    endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    add_compile_options(/W4 /permissive-)
+    if(WARNINGS_AS_ERRORS)
+        add_compile_options(/WX)
+    endif()
+endif()
 
 set(VIDEO2VEC_PUBLIC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(VIDEO2VEC_PRIVATE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
