@@ -11,6 +11,8 @@
 
 namespace video2vec::ffmpeg {
 
+// Container demuxer. Safe to use after being moved from: a moved-from
+// demuxer behaves like a closed one.
 class Demuxer {
 public:
     Demuxer();
@@ -29,14 +31,21 @@ public:
     [[nodiscard]] VideoProperties video_properties() const;
     [[nodiscard]] AudioProperties audio_properties() const;
     [[nodiscard]] std::vector<StreamInfo> streams() const;
+    // Container duration in milliseconds (longest stream if the container does
+    // not report one). 0 when unknown.
+    [[nodiscard]] int64_t duration_ms() const;
 
     // Returns 0 on success, negative AVERROR on failure or EOF.
     int read_packet(Packet& packet);
 
     int seek(int stream_index, int64_t pts, int flags);
 
-private:
+    // Opaque native handle for internal use only. Do not rely on the concrete type.
+    [[nodiscard]] void* native_handle() const noexcept;
+
     class Impl;
+
+private:
     std::unique_ptr<Impl> impl_;
 };
 
