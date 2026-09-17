@@ -16,6 +16,9 @@ struct Embedding {
     Quantization quant = Quantization::INT8;
     int dim = 0;
     std::vector<int8_t> int8_data;
+    // Per-vector scale used by quantize_to_int8: value = int8 / 127 * int8_scale.
+    // Without it a dequantized vector is only known up to a per-vector factor.
+    float int8_scale = 1.0f;
     std::vector<float> float_data;
 };
 
@@ -38,7 +41,13 @@ public:
     [[nodiscard]] virtual std::string name() const = 0;
 };
 
+// Symmetric int8 quantization; `scale` receives the per-vector max-abs value
+// needed by dequantize_from_int8 to recover the original magnitude.
+std::vector<int8_t> quantize_to_int8(std::span<const float> data, float& scale);
+// Convenience overload that discards the scale (result is unit-scaled).
 std::vector<int8_t> quantize_to_int8(std::span<const float> data);
-std::vector<float> dequantize_from_int8(std::span<const int8_t> data);
+std::vector<float> dequantize_from_int8(std::span<const int8_t> data, float scale = 1.0f);
+// float_data if present, otherwise the dequantized int8_data with its scale.
+std::vector<float> to_float(const Embedding& embedding);
 
 } // namespace video2vec::embedding

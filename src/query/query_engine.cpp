@@ -15,9 +15,7 @@ core::Result<std::vector<QueryResult>> QueryEngine::search(const QueryRequest& r
     if (!emb_result) return core::Result<std::vector<QueryResult>>(emb_result.error());
     auto& embeddings = emb_result.value();
     if (embeddings.empty()) return core::Result<std::vector<QueryResult>>(core::Error::from_code(core::ErrorCode::InternalError, "empty embedding returned"));
-    std::vector<float> query_vec;
-    if (!embeddings[0].float_data.empty()) query_vec = embeddings[0].float_data;
-    else if (!embeddings[0].int8_data.empty()) query_vec = embedding::dequantize_from_int8(embeddings[0].int8_data);
+    std::vector<float> query_vec = embedding::to_float(embeddings[0]);  // honours the int8 scale
     index::SearchConfig search_cfg{};
     search_cfg.top_k = request.top_k;
     search_cfg.type_filter = request.type_filter;
