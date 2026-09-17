@@ -7,6 +7,8 @@
 
 namespace video2vec::ffmpeg {
 
+// Interleaved float PCM buffer. Channel counts below 1 are clamped to 1 so
+// sample_count() can never divide by zero.
 class AudioBuffer {
 public:
     AudioBuffer() = default;
@@ -14,8 +16,9 @@ public:
     void append(std::span<const float> samples);
     void append(std::span<const int16_t> samples);
     [[nodiscard]] std::span<const float> float_data() const;
-    [[nodiscard]] std::span<const int16_t> int16_data() const;
-    [[nodiscard]] size_t sample_count() const noexcept { return samples_.size() / channels_; }
+    // Converted copy of the samples as signed 16-bit PCM (input clamped to [-1, 1]).
+    [[nodiscard]] std::vector<int16_t> to_int16() const;
+    [[nodiscard]] size_t sample_count() const noexcept { return samples_.size() / static_cast<size_t>(channels_); }
     [[nodiscard]] int sample_rate() const noexcept { return sample_rate_; }
     [[nodiscard]] int channels() const noexcept { return channels_; }
     void clear();

@@ -1,11 +1,12 @@
 #include "video2vec/ffmpeg/audio_buffer.hpp"
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace video2vec::ffmpeg {
 
 AudioBuffer::AudioBuffer(int sample_rate, int channels)
-    : sample_rate_(sample_rate), channels_(channels) {}
+    : sample_rate_(sample_rate > 0 ? sample_rate : 16000), channels_(channels > 0 ? channels : 1) {}
 
 void AudioBuffer::append(std::span<const float> samples) {
     samples_.insert(samples_.end(), samples.begin(), samples.end());
@@ -23,9 +24,17 @@ std::span<const float> AudioBuffer::float_data() const {
     return std::span<const float>(samples_.data(), samples_.size());
 }
 
-std::span<const int16_t> AudioBuffer::int16_data() const { return {}; }
+std::vector<int16_t> AudioBuffer::to_int16() const {
+    std::vector<int16_t> out(samples_.size());
+    for (size_t i = 0; i < samples_.size(); ++i) {
+        float scaled = std::clamp(samples_[i], -1.0f, 1.0f) * 32768.0f;
+        long rounded = std::lround(scaled);
+        out[i] = static_cast<int16_t>(std::clamp(rounded, -32768L, 32767L));
+    }
+    return out;
+}
 
 void AudioBuffer::clear() { samples_.clear(); samples_.shrink_to_fit(); }
-void AudioBuffer::reserve(size_t samples) { samples_.reserve(samples * channels_); }
+void AudioBuffer::reserve(size_t samples) { samples_.reserve(samples * static_cast<size_t>(channels_)); }
 
 } // namespace video2vec::ffmpeg

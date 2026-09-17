@@ -3,16 +3,27 @@
 #include "ffmpeg_helpers.hpp"
 
 extern "C" {
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/dict.h>
+#include <libavutil/mathematics.h>
 }
 
+#include <algorithm>
 #include <cstring>
 
 namespace video2vec::ffmpeg {
 
 class Demuxer::Impl {
 public:
+    ~Impl() { close(); }
+    void close() {
+        if (fmt_ctx_) avformat_close_input(&fmt_ctx_);
+        fmt_ctx_ = nullptr;
+        video_stream_ = -1;
+        audio_stream_ = -1;
+        path_.clear();
+    }
     AVFormatContext* fmt_ctx_ = nullptr;
     std::string path_;
     int video_stream_ = -1;
@@ -20,15 +31,9 @@ public:
 };
 
 Demuxer::Demuxer() : impl_(std::make_unique<Impl>()) {}
-Demuxer::~Demuxer() { close(); }
-Demuxer::Demuxer(Demuxer&& other) noexcept : impl_(std::move(other.impl_)) {}
-Demuxer& Demuxer::operator=(Demuxer&& other) noexcept {
-    if (this != &other) {
-        close();
-        impl_ = std::move(other.impl_);
-    }
-    return *this;
-}
+Demuxer::~Demuxer() = default;
+Demuxer::Demuxer(Demuxer&& other) noexcept = default;
+Demuxer& Demuxer::operator=(Demuxer&& other) noexcept = default;
 
 static MediaType to_media_type(int av_type) {
     switch (av_type) {
@@ -46,15 +51,19 @@ static Rational to_rational(AVRational avr) {
 }
 
 int Demuxer::open(const std::string& path) {
+    if (!impl_) return AVERROR_INVALIDDATA;
     close();
-    impl_->path_ = path;
     int ret = avformat_open_input(&impl_->fmt_ctx_, path.c_str(), nullptr, nullptr);
-    if (ret < 0) return ret;
-    ret = avformat_find_stream_info(impl_->fmt_ctx_, nullptr);
     if (ret < 0) {
-        avformat_close_input(&impl_->fmt_ctx_);
+        impl_->fmt_ctx_ = nullptr;  // avformat_open_input frees the context on failure
         return ret;
     }
+    ret = avformat_find_stream_info(impl_->fmt_ctx_, nullptr);
+    if (ret < 0) {
+        impl_->close();
+        return ret;
+    }
+    impl_->path_ = path;
     for (unsigned int i = 0; i < impl_->fmt_ctx_->nb_streams; ++i) {
         AVStream* stream = impl_->fmt_ctx_->streams[i];
         if (stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO && impl_->video_stream_ < 0)
@@ -66,23 +75,17 @@ int Demuxer::open(const std::string& path) {
 }
 
 void Demuxer::close() {
-    if (impl_->fmt_ctx_) {
-        avformat_close_input(&impl_->fmt_ctx_);
-        impl_->fmt_ctx_ = nullptr;
-    }
-    impl_->video_stream_ = -1;
-    impl_->audio_stream_ = -1;
-    impl_->path_.clear();
+    if (impl_) impl_->close();
 }
 
-bool Demuxer::is_open() const { return impl_->fmt_ctx_ != nullptr; }
-std::string Demuxer::path() const { return impl_->path_; }
-int Demuxer::video_stream_index() const { return impl_->video_stream_; }
-int Demuxer::audio_stream_index() const { return impl_->audio_stream_; }
+bool Demuxer::is_open() const { return impl_ && impl_->fmt_ctx_ != nullptr; }
+std::string Demuxer::path() const { return impl_ ? impl_->path_ : std::string{}; }
+int Demuxer::video_stream_index() const { return impl_ ? impl_->video_stream_ : -1; }
+int Demuxer::audio_stream_index() const { return impl_ ? impl_->audio_stream_ : -1; }
 
 VideoProperties Demuxer::video_properties() const {
     VideoProperties props{};
-    if (impl_->video_stream_ < 0 || !impl_->fmt_ctx_) return props;
+    if (!impl_ || impl_->video_stream_ < 0 || !impl_->fmt_ctx_) return props;
     AVStream* st = impl_->fmt_ctx_->streams[impl_->video_stream_];
     props.width = st->codecpar->width;
     props.height = st->codecpar->height;
@@ -97,7 +100,7 @@ VideoProperties Demuxer::video_properties() const {
 
 AudioProperties Demuxer::audio_properties() const {
     AudioProperties props{};
-    if (impl_->audio_stream_ < 0 || !impl_->fmt_ctx_) return props;
+    if (!impl_ || impl_->audio_stream_ < 0 || !impl_->fmt_ctx_) return props;
     AVStream* st = impl_->fmt_ctx_->streams[impl_->audio_stream_];
     props.sample_rate = st->codecpar->sample_rate;
     props.channels = st->codecpar->ch_layout.nb_channels;
@@ -109,7 +112,7 @@ AudioProperties Demuxer::audio_properties() const {
 
 std::vector<StreamInfo> Demuxer::streams() const {
     std::vector<StreamInfo> result;
-    if (!impl_->fmt_ctx_) return result;
+    if (!impl_ || !impl_->fmt_ctx_) return result;
     for (unsigned int i = 0; i < impl_->fmt_ctx_->nb_streams; ++i) {
         AVStream* st = impl_->fmt_ctx_->streams[i];
         StreamInfo info{};
@@ -129,8 +132,24 @@ std::vector<StreamInfo> Demuxer::streams() const {
     return result;
 }
 
+int64_t Demuxer::duration_ms() const {
+    if (!impl_ || !impl_->fmt_ctx_) return 0;
+    const AVFormatContext* ctx = impl_->fmt_ctx_;
+    if (ctx->duration > 0 && ctx->duration != AV_NOPTS_VALUE) {
+        return ctx->duration * 1000 / AV_TIME_BASE;
+    }
+    int64_t longest = 0;
+    for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
+        const AVStream* st = ctx->streams[i];
+        if (st->duration > 0 && st->duration != AV_NOPTS_VALUE && st->time_base.den > 0) {
+            longest = std::max(longest, av_rescale_q(st->duration, st->time_base, AVRational{1, 1000}));
+        }
+    }
+    return longest;
+}
+
 int Demuxer::read_packet(Packet& packet) {
-    if (!impl_->fmt_ctx_) return AVERROR_INVALIDDATA;
+    if (!impl_ || !impl_->fmt_ctx_) return AVERROR_INVALIDDATA;
     packet.unref();
     AVPacket* pkt = native_packet(packet);
     if (!pkt) return AVERROR_INVALIDDATA;
@@ -138,8 +157,19 @@ int Demuxer::read_packet(Packet& packet) {
 }
 
 int Demuxer::seek(int stream_index, int64_t pts, int flags) {
-    if (!impl_->fmt_ctx_) return AVERROR_INVALIDDATA;
+    if (!impl_ || !impl_->fmt_ctx_) return AVERROR_INVALIDDATA;
     return av_seek_frame(impl_->fmt_ctx_, stream_index, pts, flags);
+}
+
+void* Demuxer::native_handle() const noexcept { return impl_.get(); }
+
+const AVCodecParameters* native_codec_parameters(const Demuxer& demuxer, int stream_index) {
+    auto* impl = static_cast<const Demuxer::Impl*>(demuxer.native_handle());
+    if (!impl || !impl->fmt_ctx_ || stream_index < 0 ||
+        static_cast<unsigned int>(stream_index) >= impl->fmt_ctx_->nb_streams) {
+        return nullptr;
+    }
+    return impl->fmt_ctx_->streams[stream_index]->codecpar;
 }
 
 } // namespace video2vec::ffmpeg
