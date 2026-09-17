@@ -1,5 +1,6 @@
 #include "video2vec/ocr/tesseract_backend.hpp"
 #include "video2vec/core/logger.hpp"
+#include <cctype>
 #include <cstring>
 #include <vector>
 

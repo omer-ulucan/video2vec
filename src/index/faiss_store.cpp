@@ -70,7 +70,6 @@ core::Result<void> FAISSStore::add(const std::vector<VectorRecord>& records) {
     if (!impl_->initialized_) {
         return core::Result<void>(core::Error::from_code(core::ErrorCode::InternalError, "store not initialized"));
     }
-    size_t start_id = impl_->records_.size();
     impl_->records_.insert(impl_->records_.end(), records.begin(), records.end());
 #if defined(HAS_FAISS)
     if (!impl_->index_) return core::Result<void>(core::Error::from_code(core::ErrorCode::InternalError, "FAISS index not created"));
