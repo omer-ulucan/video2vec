@@ -80,6 +80,18 @@ TEST(VisionPng, OutputIsAValidPngContainer) {
     EXPECT_TRUE(vision::encode_png(f.rgb_data, 0, 21).empty());
 }
 
+TEST(VisionResize, BilinearResizeKeepsFlatColourAndDimensions) {
+    auto f = make_frame(0, 30, 20, 77);
+    auto small = vision::resize_rgb(f.rgb_data, 30, 20, 8, 5);
+    ASSERT_EQ(small.size(), 8u * 5u * 3u);
+    for (auto b : small) EXPECT_EQ(b, 77);
+    auto big = vision::resize_rgb(f.rgb_data, 30, 20, 64, 64);
+    ASSERT_EQ(big.size(), 64u * 64u * 3u);
+    EXPECT_EQ(big[0], 77);
+    EXPECT_TRUE(vision::resize_rgb(f.rgb_data, 30, 20, 0, 5).empty());
+    EXPECT_TRUE(vision::resize_rgb(std::vector<uint8_t>(3, 0), 30, 20, 8, 5).empty());
+}
+
 // ------------------------------------------------------------------
 // Frame selection ranks by a score that is actually computed.
 // ------------------------------------------------------------------

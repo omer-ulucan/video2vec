@@ -241,6 +241,12 @@ void ONNXBackend::unload() {
 
 bool ONNXBackend::is_loaded() const { return impl_->loaded_; }
 
+std::pair<int, int> ONNXBackend::image_input_size() const {
+    const auto& s = impl_->input_shape_;
+    if (!impl_->loaded_ || s.size() != 4 || s[2] <= 0 || s[3] <= 0) return {0, 0};
+    return {static_cast<int>(s[3]), static_cast<int>(s[2])};
+}
+
 std::vector<int8_t> quantize_to_int8(std::span<const float> data, float& scale) {
     scale = 1.0f;
     if (data.empty()) return {};

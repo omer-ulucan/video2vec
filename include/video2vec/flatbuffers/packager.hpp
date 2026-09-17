@@ -27,7 +27,7 @@
 //     u32 frames  { u64 pts_ms, u32 width, u32 height, u8 keyframe,
 //                   f64 entropy, f64 ocr_density, f64 score, bytes rgb }
 //     u32 ocr     { u32 x, y, w, h, str text, f64 confidence, u8 pii_flagged }
-//     u32 embeds  { u8 type, u8 quant, u32 dim, f32 int8_scale, bytes int8, f32[] floats }
+//     u32 embeds  { u8 type, u8 quant, u32 dim, u64 pts_ms, f32 int8_scale, bytes int8, f32[] floats }
 //     u64 processing_time_ms
 //
 // str = u32 length + bytes; bytes = u32 length + bytes. Readers validate

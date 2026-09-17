@@ -15,6 +15,9 @@ struct Embedding {
     EmbeddingType type = EmbeddingType::Global;
     Quantization quant = Quantization::INT8;
     int dim = 0;
+    // Media timestamp of the frame/patch this embedding was computed from
+    // (0 when not applicable, e.g. text). Set by the pipeline, not backends.
+    int64_t pts_ms = 0;
     std::vector<int8_t> int8_data;
     // Per-vector scale used by quantize_to_int8: value = int8 / 127 * int8_scale.
     // Without it a dequantized vector is only known up to a per-vector factor.

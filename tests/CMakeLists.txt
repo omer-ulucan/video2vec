@@ -54,6 +54,13 @@ add_test(NAME pipeline COMMAND test_pipeline)
 add_test(NAME real_backends COMMAND test_real_backends)
 add_test(NAME e2e COMMAND test_e2e)
 
+# CLI smoke test: video2vec -> load-to-llm -> vec2index -> ask/qa on the fixture.
+if(BUILD_CLI)
+    add_test(NAME cli_smoke
+        COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/smoke.sh $<TARGET_FILE_DIR:video2vec-cli>)
+    set_tests_properties(cli_smoke PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
+endif()
+
 # SDK consumer test: verify find_package(video2vec) works after install
 set(SDK_CONSUMER_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/sdk_consumer_install")
 set(SDK_CONSUMER_BUILD "${CMAKE_CURRENT_BINARY_DIR}/sdk_consumer_build")

@@ -163,6 +163,32 @@ std::vector<uint8_t> encode_png(const std::vector<uint8_t>& rgb_data, int width,
     return encode_png_stored(rgb_data, width, height);
 }
 
+std::vector<uint8_t> resize_rgb(const std::vector<uint8_t>& rgb_data, int width, int height, int out_width, int out_height) {
+    if (!has_rgb_pixels(rgb_data, width, height) || out_width <= 0 || out_height <= 0) return {};
+    std::vector<uint8_t> out(static_cast<size_t>(out_width) * out_height * 3);
+    const double sx = static_cast<double>(width) / out_width;
+    const double sy = static_cast<double>(height) / out_height;
+    for (int oy = 0; oy < out_height; ++oy) {
+        const double fy = std::min(static_cast<double>(height - 1), std::max(0.0, (oy + 0.5) * sy - 0.5));
+        const int y0 = static_cast<int>(fy), y1 = std::min(height - 1, y0 + 1);
+        const double wy = fy - y0;
+        for (int ox = 0; ox < out_width; ++ox) {
+            const double fx = std::min(static_cast<double>(width - 1), std::max(0.0, (ox + 0.5) * sx - 0.5));
+            const int x0 = static_cast<int>(fx), x1 = std::min(width - 1, x0 + 1);
+            const double wx = fx - x0;
+            for (int c = 0; c < 3; ++c) {
+                const double p00 = rgb_data[(static_cast<size_t>(y0) * width + x0) * 3 + c];
+                const double p01 = rgb_data[(static_cast<size_t>(y0) * width + x1) * 3 + c];
+                const double p10 = rgb_data[(static_cast<size_t>(y1) * width + x0) * 3 + c];
+                const double p11 = rgb_data[(static_cast<size_t>(y1) * width + x1) * 3 + c];
+                const double v = (p00 * (1 - wx) + p01 * wx) * (1 - wy) + (p10 * (1 - wx) + p11 * wx) * wy;
+                out[(static_cast<size_t>(oy) * out_width + ox) * 3 + c] = static_cast<uint8_t>(v + 0.5);
+            }
+        }
+    }
+    return out;
+}
+
 ocr::BBox expand_bbox(const ocr::BBox& bbox, int img_width, int img_height, double margin_percent) {
     int margin_x = static_cast<int>(bbox.w * margin_percent);
     int margin_y = static_cast<int>(bbox.h * margin_percent);
