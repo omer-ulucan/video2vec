@@ -179,3 +179,39 @@ All identified CRITICAL and HIGH issues from the previous audit have been resolv
 No new CRITICAL or HIGH issues were found during re-audit.
 
 Signed off: 2026-06-03
+
+---
+
+## Re-audit (2026-09-17)
+
+Scope: full source review plus building and running the suite (Release,
+ASan+UBSan) on Ubuntu 24.04 with the CI dependency set. The previous audit's
+"zero critical/high" sign-off did not hold: the integration tests never ran
+(no fixture), several assertions were tautological, and the pipeline
+produced fabricated output. Everything below was fixed on a branch per area
+and merged with tests; see `git log --merges` and docs/CHANGELOG.md.
+
+### Fixed (by area)
+
+- **ffmpeg (CRITICAL):** moved-from `Demuxer`/`Decoder`/`AudioDecoder`/`AudioResampler`/`Packet`/`Frame` dereferenced a null impl; re-initialize and move-assign leaked codec/resampler contexts; the only reachable decoder init path had no extradata, so H.264/AAC in MP4 never decoded (the e2e test passed anyway); resampler assumed 4-byte samples and a single plane; `frame_to_rgb` accepted hardware frames and ignored `sws_scale` errors; `AudioBuffer` divided by zero channels and `int16_data()` was a stub.
+- **core (CRITICAL/HIGH):** `ThreadPool::shutdown` set `stop_` outside the mutex (lost wakeup, hang) and rethrew from the worker (terminate); `CancellationToken` ignored the deadline in `sleep_for`, swallowed the callback after deadline expiry and invoked it under its own mutex; `AlignedBuffer` violated `aligned_alloc`'s size rule and was not portable; `Config::get_value` threw instead of defaulting, `merge` was a no-op on an empty root, quoted YAML became numbers, third-party exceptions leaked; `MemoryTracker` double-registration and `Histogram::percentile` clamping.
+- **asr (CRITICAL):** `detect_language = true` made `whisper_full` return before decoding in "auto" mode (the CLI default); word timings never filled; unbounded streaming buffer.
+- **embedding (CRITICAL):** dangling `c_str()` pointers in the name tables handed to `Session::Run`; re-initialize broken; missing input validation; int8 scale lost.
+- **ocr (MEDIUM):** whole page as one line with a full-frame box; short buffers OCR'd as black; `isspace` on signed char; leaks on exception.
+- **vision (CRITICAL/HIGH):** out-of-bounds reads on short pixel buffers; libvips never initialized; raw RGB returned as "PNG"; `Frame::score` never computed; grid patches missed the last row/column and filled to the maximum.
+- **packager (CRITICAL):** unbounded reads on `.vec` input; double confidence truncated through a float; embeddings/OCR confidence/PII flag/processing time never serialized; version never checked.
+- **index/query (HIGH):** `load()` never rebuilt the FAISS index; cosine without normalization; L2 ranked worst-first; `top_k <= 0` crash; compounding temporal boost; seven record fields dropped on persist; merged results left in time order.
+- **windowing/sync (MEDIUM):** negative overlap created gaps; final timestamp dropped; negative stream index threw `length_error`; `abs()` overflow; truncating PTS conversion.
+- **cli (CRITICAL):** audio packets discarded, whisper transcribed silence copied into every window; OCR/vision/embedding options ignored; `--config` discarded; `vec2index` vectors fabricated from timestamps and string lengths; `ask` never initialized its model; argument errors aborted.
+- **build/tests:** `-Werror` applied to FetchContent'd dependencies; missing standard includes; tautological assertions; no fixture for the integration tests; CRLF checkouts on Windows broke the shell scripts (`.gitattributes` added).
+
+### Known limitations (documented, not fixed)
+
+- `ONNXBackend::encode_text` uses a placeholder character-level encoding; models with int64 token-id inputs are rejected. A real tokenizer (CLIP BPE / WordPiece) is required for production text embeddings, and no CLIP mean/std normalization or resize is applied to images beyond bilinear resizing to the model input size.
+- `schema.fbs` is not compiled; the `.vec` container is a hand-rolled versioned binary format.
+- `FAISSStore`, `QueryEngine` and the backends are not thread-safe; use one instance per thread.
+- `Logger::initialize*` after first use is a no-op; `MetricsRegistry::reset()` invalidates references handed out earlier.
+- `Synchronizer` only measures drift; nothing in the pipeline currently consumes it.
+- The June 2026 CI failure on the README commit could not be reproduced in an equivalent container (all suites pass); it is likely runner-specific.
+
+Signed off: 2026-09-17
