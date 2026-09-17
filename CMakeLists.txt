@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.25)
-project(video2vec VERSION 0.1.0 LANGUAGES CXX C)
+project(video2vec VERSION 0.2.0 LANGUAGES CXX C)
+
+# The public version header is hand-maintained and installed verbatim; refuse
+# to configure if it disagrees with the project version above.
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/include/video2vec/version.hpp" _v2v_version_line
+     REGEX "#define VIDEO2VEC_VERSION_STRING")
+if(NOT _v2v_version_line MATCHES "\"${PROJECT_VERSION}\"")
+    message(FATAL_ERROR "include/video2vec/version.hpp says '${_v2v_version_line}' but the project version is ${PROJECT_VERSION}")
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -1,6 +1,6 @@
 {
   "name": "video2vec",
-  "version-string": "0.1.0",
+  "version-string": "0.2.0",
   "description": "Semantic video ingestion library for LLMs and vector databases",
   "dependencies": [
     "ffmpeg",
