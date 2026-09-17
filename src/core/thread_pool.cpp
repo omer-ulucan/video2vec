@@ -12,8 +12,17 @@ ThreadPool::ThreadPool(size_t num_threads) {
 ThreadPool::~ThreadPool() { shutdown(); }
 
 void ThreadPool::shutdown() {
-    bool expected = false;
-    if (!stop_.compare_exchange_strong(expected, true)) return;
+    // Serialize concurrent shutdown() calls so a second caller waits for the
+    // joins instead of returning while workers may still be running.
+    std::lock_guard<std::mutex> shutdown_lock(shutdown_mutex_);
+    {
+        // stop_ is part of the condition variable's predicate: it must be
+        // written under queue_mutex_, otherwise a worker that has evaluated
+        // the predicate but not yet blocked misses the notification and
+        // join() below hangs forever.
+        std::lock_guard<std::mutex> lock(queue_mutex_);
+        stop_ = true;
+    }
     condition_.notify_all();
     for (auto& worker : workers_) {
         if (worker.joinable()) worker.join();
@@ -36,8 +45,10 @@ void ThreadPool::worker_loop(size_t worker_id) {
         try {
             task();
         } catch (...) {
-            active_.fetch_sub(1);
-            throw;
+            // Tasks submitted through submit() are packaged_tasks, which
+            // capture exceptions into their future. Anything that still
+            // escapes is dropped here: rethrowing from a thread entry
+            // function would call std::terminate.
         }
         active_.fetch_sub(1);
     }

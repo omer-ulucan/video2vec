@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -37,14 +38,17 @@ public:
     }
     [[nodiscard]] size_t size() const noexcept { return workers_.size(); }
     [[nodiscard]] size_t active() const noexcept { return active_.load(); }
+    // Stops accepting work, runs queued tasks to completion and joins all
+    // workers. Idempotent and safe to call concurrently.
     void shutdown();
 private:
     void worker_loop(size_t worker_id);
     std::vector<std::thread> workers_;
     std::queue<std::function<void()>> tasks_;
     std::mutex queue_mutex_;
+    std::mutex shutdown_mutex_;
     std::condition_variable condition_;
-    std::atomic<bool> stop_{false};
+    bool stop_ = false;  // guarded by queue_mutex_
     std::atomic<size_t> active_{0};
 };
 

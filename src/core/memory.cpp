@@ -6,6 +6,10 @@ namespace video2vec::core {
 
 void MemoryTracker::allocate(void* ptr, size_t bytes, const std::string& tag) {
     std::lock_guard<std::mutex> lock(mutex_);
+    // Re-registering a live pointer replaces the old entry; its bytes must
+    // leave the active total or total_active_ drifts upward forever.
+    auto existing = allocations_.find(ptr);
+    if (existing != allocations_.end()) total_active_ -= existing->second.first;
     allocations_[ptr] = {bytes, tag};
     total_allocated_ += bytes;
     total_active_ += bytes;
