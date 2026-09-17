@@ -2,11 +2,23 @@
 #include <video2vec/sync/synchronizer.hpp>
 #include <video2vec/sync/timestamp.hpp>
 
+#include <limits>
+#include <stdexcept>
+
 using namespace video2vec::sync;
 
 TEST(SyncTimestamp, PtsToMs) {
     EXPECT_EQ(pts_to_ms(1000, 1, 1000), 1000);
     EXPECT_EQ(pts_to_ms(25, 1, 25), 1000);
+}
+
+TEST(SyncTimestamp, RoundsToNearestMillisecond) {
+    EXPECT_EQ(pts_to_ms(1, 1, 30), 33);
+    EXPECT_EQ(pts_to_ms(2, 1, 30), 67);   // 66.67 was truncated to 66
+    EXPECT_EQ(pts_to_ms(-1, 1, 30), -33);
+    EXPECT_EQ(pts_to_ms(5, 1, 0), 0);
+    EXPECT_EQ(ms_to_pts(67, 1, 30), 2);
+    EXPECT_EQ(ms_to_pts(33, 0, 30), 0);
 }
 
 TEST(SyncSynchronizer, Registration) {
@@ -15,6 +27,24 @@ TEST(SyncSynchronizer, Registration) {
     sync.register_stream(1, 1, 48000);
     EXPECT_EQ(sync.to_ms(0, 1000), 1000);
     EXPECT_EQ(sync.to_ms(1, 48000), 1000);
+}
+
+TEST(SyncSynchronizer, RejectsInvalidStreams) {
+    Synchronizer sync;
+    EXPECT_THROW(sync.register_stream(-1, 1, 1000), std::invalid_argument);
+    EXPECT_THROW(sync.register_stream(-2, 1, 1000), std::invalid_argument);  // used to throw length_error
+    EXPECT_THROW(sync.register_stream(0, 1, 0), std::invalid_argument);
+    EXPECT_EQ(sync.to_ms(-1, 1000), 0);
+    EXPECT_EQ(sync.to_ms(5, 1000), 0);
+    EXPECT_EQ(sync.from_ms(-1, 1000), 0);
+}
+
+TEST(SyncSynchronizer, ExtremeValuesDoNotOverflow) {
+    Synchronizer sync(20);
+    auto report = sync.align(std::numeric_limits<int64_t>::min(), 0);
+    EXPECT_EQ(report.drift_ms, std::numeric_limits<int64_t>::max());
+    EXPECT_TRUE(report.corrected);
+    EXPECT_EQ(sync.snap(std::numeric_limits<int64_t>::max(), 0), 0);
 }
 
 TEST(SyncSynchronizer, AlignNoDrift) {
