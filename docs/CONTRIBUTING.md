@@ -36,12 +36,7 @@ All changes must include tests:
 
 ### Pull Request Checklist
 
-- [ ] Code compiles without warnings.
-- [ ] Tests pass locally.
-- [ ] Formatting checks pass.
-- [ ] No TODO/FIXME comments.
-- [ ] Public APIs are documented.
-- [ ] CHANGELOG.md updated.
+Every pull request uses the template in `.github/PULL_REQUEST_TEMPLATE.md`, which lists the merge gates (CI, tests, documentation, changelog, licensing, commit hygiene, self-review). A pull request merges only when all of them are satisfied.
 
 ## Architecture Decisions
 
