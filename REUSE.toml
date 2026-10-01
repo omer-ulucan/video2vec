@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Licensing for Markdown and JSON files. JSON has no comment syntax, and
+# Markdown is kept free of header comments so rendered documents stay clean.
+# Every other file declares its license in its own SPDX header; `reuse lint`
+# checks both in CI.
+version = 1
+
+[[annotations]]
+path = ["**.md", "vcpkg.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025-2026 Ömer Ulucan"
+SPDX-License-Identifier = "Apache-2.0 OR MIT"
