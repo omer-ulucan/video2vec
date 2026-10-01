@@ -47,11 +47,7 @@ Every pull request uses the template in `.github/PULL_REQUEST_TEMPLATE.md`, whic
 
 ## Reporting Issues
 
-Use the GitHub issue forms (bug report, feature request, documentation or question). Security vulnerabilities go through private reporting, see [SECURITY.md](../SECURITY.md). Include:
-- Build environment (OS, compiler, CMake version).
-- Steps to reproduce.
-- Expected vs actual behavior.
-- Relevant logs.
+Use the GitHub issue forms (bug report, feature request, documentation or question); each asks for what triage needs. Security vulnerabilities never go in a public issue: report them privately as described in [SECURITY.md](../SECURITY.md).
 
 ## License
 
