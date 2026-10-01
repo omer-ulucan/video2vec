@@ -19,6 +19,12 @@ indent_size = 2
 [*.{json,md}]
 indent_size = 2
 
+# Markdown keeps each paragraph on one line, as the existing docs do: an edit
+# never reflows neighbouring lines, and line length does not change the
+# rendered text.
+[*.md]
+max_line_length = off
+
 [CMakeLists.txt]
 indent_size = 4
 
