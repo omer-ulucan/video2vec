@@ -36,7 +36,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at the project maintainer, [@omer-ulucan](https://github.com/omer-ulucan), privately through the contact details on that GitHub profile (please do not open a public issue). All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at the project maintainer, [@omer-ulucan](https://github.com/omer-ulucan), through the repository's [private reporting form](https://github.com/omer-ulucan/video2vec/security/advisories/new) with a title starting "Code of Conduct report". Only the reporter and the maintainer can see these reports; please do not open a public issue. All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 
