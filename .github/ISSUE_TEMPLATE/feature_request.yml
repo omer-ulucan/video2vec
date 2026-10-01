@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Feature request form. Starts from the problem, not the solution, so the
+# request can be weighed against the roadmap and the no-information-loss promise.
+name: Feature request
+description: Propose a new capability or an improvement.
+labels: ["type:feat", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what stops you today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Decoding / media
+        - Speech (ASR, VAD)
+        - On-screen text (OCR)
+        - Scenes / visual embeddings
+        - Retrieval / index / search
+        - Server / MCP
+        - Python bindings
+        - C/C++ API or ABI
+        - Build / packaging / CI
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to work on this myself.

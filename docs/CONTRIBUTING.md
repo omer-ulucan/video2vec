@@ -52,7 +52,7 @@ All changes must include tests:
 
 ## Reporting Issues
 
-Use GitHub Issues with the provided templates. Include:
+Use the GitHub issue forms (bug report, feature request, documentation or question). Security vulnerabilities go through private reporting, see [SECURITY.md](../SECURITY.md). Include:
 - Build environment (OS, compiler, CMake version).
 - Steps to reproduce.
 - Expected vs actual behavior.

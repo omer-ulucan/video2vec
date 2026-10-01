@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Bug report form. Asks for the version, environment and a reproducer up front
+# because most native-code bugs depend on the toolchain and FFmpeg build.
+name: Bug report
+description: Something is broken, crashes, or gives a wrong result.
+labels: ["type:fix", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Security problems belong in a private advisory, not here (see SECURITY.md).
+        Do not attach media you are not allowed to share.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: The observed behaviour, including exact error messages.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Commands, config and, if possible, a minimal input that triggers the problem.
+      placeholder: |
+        1. video2vec --in sample.mp4 --out sample.vec ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: video2vec version
+      description: Output of `video2vec --version`, or the commit SHA.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS and version, compiler, CMake, FFmpeg version and how it was installed, CPU/GPU.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant log output (it is rendered as code).
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

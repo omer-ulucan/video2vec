@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Issue chooser: blank issues are disabled so every report starts from a form
+# with the information triage needs; security reports go to private advisories.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/omer-ulucan/video2vec/security/advisories/new
+    about: Please report vulnerabilities privately, never in a public issue (see SECURITY.md).
