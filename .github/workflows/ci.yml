@@ -137,7 +137,9 @@ jobs:
       - name: Setup custom dependencies
         run: scripts/ci-setup-deps.sh
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+        run: >-
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
       - name: Build
         run: cmake --build build --parallel $(nproc)
       - name: Test
