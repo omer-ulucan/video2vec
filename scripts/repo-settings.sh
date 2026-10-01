@@ -15,10 +15,11 @@ set -euo pipefail
 
 REPO="${REPO:-omer-ulucan/video2vec}"
 DESCRIPTION="Pure C++20 video-to-LLM pipeline: full transcript, on-screen text and visual embeddings on a millisecond timeline, packaged for retrieval and LLM context."
-# Topics are lowercase, at most 20 (GitHub limit).
+# Topics are lowercase, at most 20 (GitHub limit). They are public claims:
+# add a topic only once the feature it names has shipped (e.g. `mcp` with
+# the MCP server, `semantic-search` with real text embeddings).
 TOPICS=(video llm rag retrieval-augmented-generation cpp20 ffmpeg whisper-cpp speech-recognition
-        ocr tesseract onnxruntime embeddings vector-search faiss multimodal semantic-search
-        video-processing mcp)
+        ocr tesseract onnxruntime embeddings vector-search faiss multimodal video-processing)
 
 apply() {
   # Merge commits or rebase only: squash merges would flatten the atomic,
