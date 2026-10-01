@@ -4,7 +4,7 @@ video2vec processes untrusted input (media files, `.vec` containers, index files
 
 ## Supported versions
 
-While the project is in 0.x, only the latest release receives security fixes. The full support policy, including fix windows per minor version, is published with v0.8.0.
+While the project is in 0.x, only the latest release receives fixes, security fixes included. The full support policy, including fix windows per minor version, is planned for v0.8.0.
 
 | Version | Security fixes |
 |---------|----------------|

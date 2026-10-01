@@ -1,6 +1,6 @@
 # Support
 
-This is an interim policy for the 0.x series; the full support policy (supported versions, release cadence and fix windows) is published with v0.8.0.
+This is an interim policy for the 0.x series; the full support policy (release cadence and fix windows) is planned for v0.8.0 (see the [roadmap](docs/ROADMAP.md)).
 
 ## Getting help
 
@@ -11,7 +11,7 @@ This is an interim policy for the 0.x series; the full support policy (supported
 
 ## Supported versions
 
-During 0.x only the latest release receives fixes. Upgrade to the latest release before reporting a bug.
+See [Supported versions](SECURITY.md#supported-versions) in the security policy; the same window applies to all fixes. Upgrade to the latest release before reporting a bug.
 
 ## Expectations
 
