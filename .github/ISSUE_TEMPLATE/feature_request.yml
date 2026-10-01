@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
 # Feature request form. Starts from the problem, not the solution, so the
-# request can be weighed against the roadmap and the no-information-loss promise.
+# request can be weighed against the roadmap and the project's rule that
+# nothing from the video (speech, on-screen text, frames) is dropped or summarized.
 name: Feature request
 description: Propose a new capability or an improvement.
 labels: ["type:feat", "needs-triage"]
