@@ -25,12 +25,16 @@ if [[ ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.a" && ! -f "${DEPS_DIR}/whi
     if [[ ! -d "${DEPS_DIR}/whisper-src" ]]; then
         git clone --depth 1 --branch v1.7.2 https://github.com/ggerganov/whisper.cpp.git "${DEPS_DIR}/whisper-src"
     fi
+    # GGML_NATIVE=OFF: ggml otherwise compiles with -march=native and ignores the
+    # GGML_AVX* flags below. The build is cached across CI runners with different
+    # CPUs, so a native build crashes with SIGILL when restored on an older one.
     cmake -S "${DEPS_DIR}/whisper-src" -B "${DEPS_DIR}/whisper-build" \
         -DCMAKE_BUILD_TYPE=Release \
         -DWHISPER_BUILD_TESTS=OFF \
         -DWHISPER_BUILD_EXAMPLES=OFF \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         -DBUILD_SHARED_LIBS=OFF \
+        -DGGML_NATIVE=OFF \
         -DGGML_AVX=OFF \
         -DGGML_AVX2=OFF \
         -DGGML_FMA=OFF \
