@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Documentation or question form. Questions are answered by improving the docs
+# where possible, so both share one form.
+name: Documentation or question
+description: Something in the docs is wrong, missing or unclear, or you have a usage question.
+labels: ["type:docs", "needs-triage"]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Page or section
+      description: File, URL or section concerned (if any).
+  - type: textarea
+    id: question
+    attributes:
+      label: What is wrong, missing or unclear?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested change or what you tried
+  - type: input
+    id: version
+    attributes:
+      label: video2vec version
+      description: Output of `video2vec --version`, if relevant.

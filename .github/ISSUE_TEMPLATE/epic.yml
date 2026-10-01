@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Epic form for maintainers. An epic groups sub-issues (linked as native
+# sub-issues) and carries the design decisions they share.
+name: Epic
+description: A body of work that groups sub-issues (maintainers).
+labels: ["type:epic"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: Design and decisions
+      description: Decisions, alternatives rejected and why, constraints the sub-issues share.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      description: Shared exit criteria; each sub-issue still has its own acceptance criteria.
+    validations:
+      required: true

@@ -13,3 +13,11 @@ path = ["**.md", "vcpkg.json"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025-2026 Ömer Ulucan"
 SPDX-License-Identifier = "Apache-2.0 OR MIT"
+
+# The Code of Conduct is the Contributor Covenant 2.1 (CC BY 4.0), adapted
+# only by filling in the contact method.
+[[annotations]]
+path = "CODE_OF_CONDUCT.md"
+precedence = "override"
+SPDX-FileCopyrightText = ["Contributor Covenant contributors", "2025-2026 Ömer Ulucan"]
+SPDX-License-Identifier = "CC-BY-4.0"

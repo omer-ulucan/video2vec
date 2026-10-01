@@ -36,12 +36,7 @@ All changes must include tests:
 
 ### Pull Request Checklist
 
-- [ ] Code compiles without warnings.
-- [ ] Tests pass locally.
-- [ ] Formatting checks pass.
-- [ ] No TODO/FIXME comments.
-- [ ] Public APIs are documented.
-- [ ] CHANGELOG.md updated.
+Every pull request uses the template in `.github/PULL_REQUEST_TEMPLATE.md`, which lists the merge gates (CI, tests, documentation, changelog, licensing, commit hygiene, self-review). A pull request merges only when all of them are satisfied.
 
 ## Architecture Decisions
 
@@ -52,11 +47,7 @@ All changes must include tests:
 
 ## Reporting Issues
 
-Use GitHub Issues with the provided templates. Include:
-- Build environment (OS, compiler, CMake version).
-- Steps to reproduce.
-- Expected vs actual behavior.
-- Relevant logs.
+Use the GitHub issue forms (bug report, feature request, documentation or question); each asks for what triage needs. Security vulnerabilities never go in a public issue: report them privately as described in [SECURITY.md](../SECURITY.md).
 
 ## License
 

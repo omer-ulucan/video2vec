@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# yamllint configuration for the repository's YAML (workflows, issue forms,
+# configs). Starts from the upstream default rules and relaxes only the ones
+# that conflict with GitHub's own conventions. CI runs it with --strict, so
+# warnings fail too.
+extends: default
+
+ignore: |
+  build*/
+  deps/
+
+rules:
+  # GitHub Actions uses the bare key `on:`, which YAML 1.1 reads as a boolean.
+  # Keys are exempt; values are still checked.
+  truthy:
+    check-keys: false
+  # Actions are pinned by commit SHA with the tag in a trailing comment
+  # (`@<sha> # v7.0.1`), the format Dependabot maintains; one space is enough.
+  comments:
+    min-spaces-from-content: 1
+  # Each file is a single document read by GitHub or a tool; a leading `---`
+  # marker adds nothing.
+  document-start: disable
+  # Same limit as .editorconfig.
+  line-length:
+    max: 100

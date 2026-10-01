@@ -7,7 +7,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - License files: `LICENSE-APACHE` and `LICENSE-MIT` (the project has always been declared "Apache-2.0 OR MIT" but shipped no license text), SPDX headers on every source, build and script file, `REUSE.toml` for Markdown and JSON, and `reuse lint` passing (REUSE specification 3.3, `LICENSES/`).
-- CI: `reuse` (license compliance) and `links` (offline link and anchor check of every Markdown file in the repository root and `docs/`) jobs.
+- Community and governance files: `SECURITY.md` (private vulnerability reporting), `SUPPORT.md` (interim), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), GitHub issue forms (bug, feature, documentation/question, epic) and a pull request template listing the merge gates.
+- CI: `reuse` (license compliance), `links` (offline link and anchor check of every Markdown file in the repository root and `docs/`) and `lint` (yamllint over every YAML file, actionlint with shellcheck over the workflows) jobs.
 
 ### Changed
 

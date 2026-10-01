@@ -39,6 +39,35 @@ jobs:
         with:
           args: --offline --include-fragments --no-progress './*.md' 'docs/**/*.md'
 
+  # YAML and workflow gate: yamllint checks every YAML file (workflows, issue
+  # forms) against .yamllint.yaml; actionlint type-checks workflows, including
+  # their run scripts through the shellcheck that the runner image provides.
+  lint:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # nothing below pushes
+      - name: yamllint
+        run: pipx run --spec yamllint==1.38.0 yamllint --strict --format github .
+      - name: Install actionlint
+        # Pinned release, verified against the SHA-256 published with it.
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          cd "$RUNNER_TEMP"
+          base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          curl -fsSL --retry 3 -o actionlint.tar.gz \
+            "${base}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
+          tar -xzf actionlint.tar.gz actionlint
+      - name: actionlint
+        run: |
+          "$RUNNER_TEMP/actionlint" -color
+
   build-linux-gcc:
     runs-on: ubuntu-latest
     steps:
@@ -70,14 +99,9 @@ jobs:
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
       - name: Build
-        run: cmake --build build --parallel $(nproc)
+        run: cmake --build build --parallel "$(nproc)"
       - name: Test
         run: ctest --test-dir build --output-on-failure
-      # Format check disabled until codebase is fully clang-format compliant
-      # - name: Format check
-      #   run: |
-      #     sudo apt-get install -y clang-format
-      #     find src include tests examples -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror
 
   build-linux-clang:
     runs-on: ubuntu-latest
@@ -108,9 +132,11 @@ jobs:
       - name: Setup custom dependencies
         run: scripts/ci-setup-deps.sh
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+        run: >-
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
       - name: Build
-        run: cmake --build build --parallel $(nproc)
+        run: cmake --build build --parallel "$(nproc)"
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
@@ -148,12 +174,12 @@ jobs:
       - name: Configure ASan
         run: cmake -B build -DENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_BENCHMARKS=OFF
       - name: Build ASan
-        run: cmake --build build --parallel $(nproc)
+        run: cmake --build build --parallel "$(nproc)"
       - name: Test ASan
         run: ctest --test-dir build --output-on-failure -E "sdk_consumer"
       - name: Configure UBSan
         run: cmake -B build_ub -DENABLE_UBSAN=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_BENCHMARKS=OFF
       - name: Build UBSan
-        run: cmake --build build_ub --parallel $(nproc)
+        run: cmake --build build_ub --parallel "$(nproc)"
       - name: Test UBSan
         run: ctest --test-dir build_ub --output-on-failure -E "sdk_consumer"
