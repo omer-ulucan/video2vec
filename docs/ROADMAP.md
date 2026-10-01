@@ -1,16 +1,16 @@
 # Roadmap
 
-Each phase ends in a release that is usable on its own and ships only when its release gates pass (tests on the platform matrix, sanitizers, lint, licensing, documentation, ABI and performance checks). Progress is tracked in the [GitHub milestones](https://github.com/omer-ulucan/video2vec/milestones); every item below is an issue there.
+Each phase ends in a release that is usable on its own and ships only when its release gates pass (tests on the platform matrix, sanitizers, lint, licensing, documentation, ABI and performance checks). Progress is tracked in the [GitHub milestones](https://github.com/omer-ulucan/video2vec/milestones), where the work up to 1.0 is broken into issues; 1.1 and 1.2 are planned after 1.0.
 
 ## Done
 
-- **0.2.0** (2026-09-17): re-audit release; every module fixed and covered by tests that exercise the real backends. See [CHANGELOG](CHANGELOG.md) and [AUDIT](../AUDIT.md).
+- **0.2.0** (2026-09-17): re-audit release with crash, memory-safety and correctness fixes across the modules, and tests that exercise the real backends. See [CHANGELOG](CHANGELOG.md) and [AUDIT](../AUDIT.md).
 
 ## Planned
 
 ### 0.2.1: foundations and licensing
 - License files, SPDX headers, REUSE compliance.
-- Security policy, support policy, code of conduct, issue forms, pull request template.
+- Security policy, interim support policy, code of conduct, issue forms, pull request template.
 - Restructured CI with a single required check, enforced formatting and static analysis, pinned and checksummed dependencies, a Python-free build and test path.
 - Fixes for defects found in the audit (logging to stdout, unbounded frame buffering, invalid UTF-8, text dimension mismatch, FAISS build path).
 - Honest documentation and a signed source release with SBOM and provenance.
@@ -19,7 +19,7 @@ Each phase ends in a release that is usable on its own and ships only when its r
 - Public pipeline API with bounded memory, cancellation and timeouts; public media decoding with limits for untrusted input.
 - Scene and slide change detection: every distinct frame is read once, nothing is dropped.
 - `.vec` v3 (FlatBuffers, checksums, streaming, per-chunk records) with migration from v2.
-- Device model (CPU now, GPU plugins later), validated configuration, model download and cache manager, one `video2vec` CLI.
+- Device model (CPU now, GPU plugins later), validated configuration, model download and cache manager, one `video2vec` CLI, exports that mark every cut.
 - Evaluation harness and first published measurements; fuzzing and hardened builds.
 
 ### 0.4.0: stable C ABI, devices and plugins
@@ -33,7 +33,7 @@ Each phase ends in a release that is usable on its own and ships only when its r
 - Crash-safe checkpoint and resume; batch processing.
 
 ### 0.6.0: retrieval and chapters
-- Real tokenizers and text embeddings (English and Turkish), BM25 + vector hybrid search, optional reranker.
+- Real tokenizers and text embeddings (English and Turkish), model-specific image preprocessing (CLIP/SigLIP) with a paired text encoder, BM25 + vector hybrid search, optional reranker.
 - Results always carry timestamps, the verbatim transcript, on-screen text and a frame reference.
 - Chapter segmentation with titles taken verbatim from on-screen text.
 
