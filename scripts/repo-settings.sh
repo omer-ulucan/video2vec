@@ -9,9 +9,11 @@
 # Settings live here as code so they are reviewable and reproducible instead
 # of hidden in the web UI. Idempotent.
 #
-# Needs a `gh` login with admin rights on the repository.
+# Requires: gh (logged in with admin rights on the repository) and jq.
 # Usage: scripts/repo-settings.sh apply   # apply, then verify
-#        scripts/repo-settings.sh check   # verify only; exit 1 on drift
+#        scripts/repo-settings.sh check   # verify only
+# Exit status: 0 when every setting matches, 1 on drift or on an API error,
+# 2 on wrong usage or a missing tool.
 set -euo pipefail
 
 REPO="${REPO:-omer-ulucan/video2vec}"
@@ -82,7 +84,7 @@ check() {
             drift=1
         fi
     }
-    local repo_json entry path name got want
+    local repo_json entry path name got want status
     repo_json=$(gh api "repos/${REPO}")
     expect_eq description "$(jq -r .description <<<"${repo_json}")" "${DESCRIPTION}"
     for entry in "${REPO_FIELDS[@]}"; do
@@ -90,19 +92,34 @@ check() {
         name=${path%.status}
         expect_eq "${name##*.}" "$(jq -r ".${path}" <<<"${repo_json}")" "${entry#*=}"
     done
-    got=$(gh api "repos/${REPO}/topics" --jq '.names | sort | join(",")')
-    want=$(printf '%s\n' "${TOPICS[@]}" | sort | paste -sd, -)
+    # Byte-order sort on both sides: locale collation would reorder names
+    # such as "c-api" and "cache" differently from jq.
+    got=$(gh api "repos/${REPO}/topics" | jq -r '.names | sort | join(",")')
+    want=$(printf '%s\n' "${TOPICS[@]}" \
+        | jq -Rr -s 'split("\n") | map(select(. != "")) | sort | join(",")')
     expect_eq topics "${got}" "${want}"
     got=$(gh api "repos/${REPO}/private-vulnerability-reporting" | jq -r .enabled)
     expect_eq private_vulnerability_reporting "${got}" true
-    # vulnerability-alerts answers 204 when enabled and 404 when disabled.
-    if gh api "repos/${REPO}/vulnerability-alerts" >/dev/null 2>&1; then got=true; else got=false; fi
+    # vulnerability-alerts answers 204 when enabled and 404 when disabled; any
+    # other failure is an API error, not a setting value.
+    status=$(gh api -i "repos/${REPO}/vulnerability-alerts" 2>/dev/null \
+        | head -n1 | awk '{print $2}' || true)
+    case "${status}" in
+        204) got=true ;;
+        404) got=false ;;
+        *)
+            echo "repo-settings: cannot read vulnerability-alerts (HTTP ${status:-none})" >&2
+            exit 1
+            ;;
+    esac
     expect_eq dependabot_alerts "${got}" true
-    got=$(gh api "repos/${REPO}/automated-security-fixes" --jq .enabled)
+    got=$(gh api "repos/${REPO}/automated-security-fixes" | jq -r '.enabled and (.paused | not)')
     expect_eq dependabot_security_updates "${got}" true
     return "${drift}"
 }
 
+command -v gh >/dev/null || die "gh is required"
+command -v jq >/dev/null || die "jq is required"
 case "${1:-check}" in
     apply) apply; check ;;
     check) check ;;
