@@ -39,6 +39,35 @@ jobs:
         with:
           args: --offline --include-fragments --no-progress './*.md' 'docs/**/*.md'
 
+  # YAML and workflow gate: yamllint checks every YAML file (workflows, issue
+  # forms) against .yamllint.yaml; actionlint type-checks workflows, including
+  # their run scripts through the shellcheck that the runner image provides.
+  lint:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # nothing below pushes
+      - name: yamllint
+        run: pipx run --spec yamllint==1.38.0 yamllint --strict --format github .
+      - name: Install actionlint
+        # Pinned release, verified against the SHA-256 published with it.
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          cd "$RUNNER_TEMP"
+          base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          curl -fsSL --retry 3 -o actionlint.tar.gz \
+            "${base}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
+          tar -xzf actionlint.tar.gz actionlint
+      - name: actionlint
+        run: |
+          "$RUNNER_TEMP/actionlint" -color
+
   build-linux-gcc:
     runs-on: ubuntu-latest
     steps:
