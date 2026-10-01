@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 add_library(video2vec-windowing windowing.cpp)
 add_library(video2vec::windowing ALIAS video2vec-windowing)
 target_include_directories(video2vec-windowing

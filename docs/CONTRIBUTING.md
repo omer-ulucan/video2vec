@@ -60,4 +60,8 @@ Use GitHub Issues with the provided templates. Include:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache-2.0 license.
+video2vec is licensed under either of Apache-2.0 or MIT, at your option (see [LICENSE-APACHE](../LICENSE-APACHE) and [LICENSE-MIT](../LICENSE-MIT)).
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in video2vec by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+
+New files need the two SPDX tags at the top (`SPDX-FileCopyrightText` and `SPDX-License-Identifier`, with the license expression `Apache-2.0 OR MIT`; copy the header of any existing file). Markdown and JSON files are covered by `REUSE.toml` instead (JSON has no comments; Markdown stays free of header comments). Copyright years are not bumped on edits. Run `reuse lint` before opening a pull request.

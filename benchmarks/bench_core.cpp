@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 #include <benchmark/benchmark.h>
 #include <video2vec/core/thread_pool.hpp>
 #include <video2vec/windowing/windowing.hpp>

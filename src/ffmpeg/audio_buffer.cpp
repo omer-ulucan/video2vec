@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 #include "video2vec/ffmpeg/audio_buffer.hpp"
 #include <algorithm>
 #include <cmath>

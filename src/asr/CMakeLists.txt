@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 if(TARGET whisper)
     set(ASR_SOURCES whisper_backend.cpp)
     set(ASR_LIBS whisper)

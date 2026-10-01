@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 add_library(video2vec-sync synchronizer.cpp)
 add_library(video2vec::sync ALIAS video2vec-sync)
 target_include_directories(video2vec-sync

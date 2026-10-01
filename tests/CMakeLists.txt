@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 enable_testing()
 find_package(GTest QUIET)
 if(NOT GTest_FOUND)

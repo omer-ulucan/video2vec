@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 #include <gtest/gtest.h>
 #include <video2vec/sync/synchronizer.hpp>
 #include <video2vec/sync/timestamp.hpp>

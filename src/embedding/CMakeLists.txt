@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 if(onnxruntime_FOUND OR ONNXRUNTIME_FOUND OR TARGET onnxruntime::onnxruntime)
     set(EMBEDDING_SOURCES onnx_backend.cpp)
     set(EMBEDDING_LIBS onnxruntime::onnxruntime)

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 root = true
 
 [*]
@@ -17,3 +21,7 @@ indent_size = 2
 
 [CMakeLists.txt]
 indent_size = 4
+
+# License texts are kept verbatim, so their line lengths are not reflowed.
+[{LICENSE-*,LICENSES/**}]
+max_line_length = off

@@ -1,7 +1,7 @@
 # video2vec
 
 [![CI](https://github.com/omer-ulucan/video2vec/actions/workflows/ci.yml/badge.svg)](https://github.com/omer-ulucan/video2vec/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](#license)
 [![Version](https://img.shields.io/badge/version-0.2.0-green.svg)](https://github.com/omer-ulucan/video2vec/releases/tag/v0.2.0)
 
 **Pure C++ semantic video to LLM pipeline.**
@@ -222,6 +222,10 @@ Version 0.2.0 is the result of a full re-audit of 0.1.0; every module received c
 ## License
 
 Licensed under either of the Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE)) or the MIT license ([LICENSE-MIT](LICENSE-MIT)), at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in video2vec by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+
+Every file declares its copyright and license: source, build and script files through an SPDX header, Markdown and JSON files through `REUSE.toml`. The repository follows the [REUSE](https://reuse.software/) specification, checked by `reuse lint` in CI.
 
 ## Acknowledgments
 

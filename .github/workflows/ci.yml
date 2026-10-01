@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 name: CI
 
 on:
@@ -7,6 +11,34 @@ on:
     branches: [main, develop]
 
 jobs:
+  # Licensing gate: every file must declare its copyright and license
+  # (SPDX headers, or REUSE.toml for files that cannot hold comments).
+  reuse:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # third-party action below needs no token
+      - name: REUSE compliance
+        uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+
+  # Documentation gate: relative links and in-page anchors in Markdown must
+  # resolve. Offline mode keeps the job deterministic (no network flakiness).
+  links:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # third-party action below needs no token
+      - name: Check Markdown links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: --offline --include-fragments --no-progress './*.md' 'docs/**/*.md'
+
   build-linux-gcc:
     runs-on: ubuntu-latest
     steps:

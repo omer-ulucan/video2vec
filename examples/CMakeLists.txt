@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 add_executable(basic_decode basic_decode.cpp)
 target_link_libraries(basic_decode PRIVATE video2vec::ffmpeg video2vec::core)
 add_executable(basic_pipeline basic_pipeline.cpp)

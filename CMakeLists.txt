@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 cmake_minimum_required(VERSION 3.25)
 project(video2vec VERSION 0.2.0 LANGUAGES CXX C)
 
