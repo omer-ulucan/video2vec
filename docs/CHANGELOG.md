@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - CONTRIBUTING: contributions are dual licensed Apache-2.0 OR MIT (previously stated as Apache-2.0 only).
+- README rewritten around where the project is going: maturity labels per component, the current limitations (frame cap, placeholder text encoder, overlap duplicates, LLM export cut, memory growth), a quick start that mirrors CI, and the release roadmap. `docs/ROADMAP.md` now follows the planned releases from 0.2.1 to 1.0.
 
 ## [0.2.0] - 2026-09-17
 
