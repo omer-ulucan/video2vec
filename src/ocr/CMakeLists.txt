@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 if(Tesseract_FOUND OR TESSERACT_FOUND OR TARGET Tesseract::libtesseract)
     set(OCR_SOURCES tesseract_backend.cpp)
     if(TARGET Tesseract::libtesseract)

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 add_library(video2vec-vision frame_selector.cpp patch_extractor.cpp)
 add_library(video2vec::vision ALIAS video2vec-vision)
 target_include_directories(video2vec-vision

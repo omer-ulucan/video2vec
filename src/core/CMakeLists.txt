@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 add_library(video2vec-core
     logger.cpp
     thread_pool.cpp

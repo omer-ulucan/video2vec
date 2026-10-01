@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 // Demonstrates the library pieces that need no media file or model:
 // windowing, frame scoring/selection per window, packaging and the thread pool.
 #include <video2vec/core/logger.hpp>

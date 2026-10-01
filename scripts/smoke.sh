@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 # End-to-end CLI smoke test: video2vec -> load-to-llm -> vec2index -> ask on the
 # generated fixture with the tiny test models. Also checks that bad arguments
 # fail cleanly (non-zero exit, no abort).

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 # CI dependency setup script for video2vec.
 # Downloads and builds all custom dependencies into the deps/ directory.
 set -euo pipefail

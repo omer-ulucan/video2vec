@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 add_executable(video2vec-cli video2vec_cli.cpp)
 add_executable(vec2index vec2index.cpp)
 add_executable(ask ask.cpp)

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 #pragma once
 
 #define VIDEO2VEC_VERSION_MAJOR 0

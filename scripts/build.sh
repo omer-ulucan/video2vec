@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 set -euo pipefail
 BUILD_TYPE=${1:-Release}
 BUILD_DIR="build-${BUILD_TYPE,,}"
