@@ -99,7 +99,7 @@ jobs:
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
       - name: Build
-        run: cmake --build build --parallel $(nproc)
+        run: cmake --build build --parallel "$(nproc)"
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
@@ -136,7 +136,7 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
       - name: Build
-        run: cmake --build build --parallel $(nproc)
+        run: cmake --build build --parallel "$(nproc)"
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
@@ -174,12 +174,12 @@ jobs:
       - name: Configure ASan
         run: cmake -B build -DENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_BENCHMARKS=OFF
       - name: Build ASan
-        run: cmake --build build --parallel $(nproc)
+        run: cmake --build build --parallel "$(nproc)"
       - name: Test ASan
         run: ctest --test-dir build --output-on-failure -E "sdk_consumer"
       - name: Configure UBSan
         run: cmake -B build_ub -DENABLE_UBSAN=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_BENCHMARKS=OFF
       - name: Build UBSan
-        run: cmake --build build_ub --parallel $(nproc)
+        run: cmake --build build_ub --parallel "$(nproc)"
       - name: Test UBSan
         run: ctest --test-dir build_ub --output-on-failure -E "sdk_consumer"
