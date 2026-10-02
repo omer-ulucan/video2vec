@@ -8,6 +8,8 @@
 # Downloads and builds all custom dependencies into the deps/ directory. Every
 # download goes through deps_fetch (scripts/deps/lock.sh), which checks it
 # against the SHA-256 pinned in deps.lock before it is unpacked or used.
+# Unpacked trees record the pin they came from and are replaced (with their
+# builds) when it changes, so nothing in deps/ predates the current lock.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,13 +28,16 @@ echo "=== Setting up dependencies in ${DEPS_DIR} ==="
 # ------------------------------------------------------------------
 # whisper.cpp
 # ------------------------------------------------------------------
+# A source tree that does not match its pin (older lock, or unpacked before
+# deps.lock existed) is replaced from a verified archive, and its build with it.
+if ! deps_is_current whisper.cpp "${DEPS_DIR}/whisper-src"; then
+    echo "--- Unpacking whisper.cpp ---"
+    rm -rf "${DEPS_DIR}/whisper-build"
+    deps_unpack whisper.cpp "${DOWNLOADS_DIR}/whisper.cpp.tar.gz" "${DEPS_DIR}/whisper-src" \
+        --strip-components=1
+fi
 if [[ ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.a" && ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.so" ]]; then
     echo "--- Building whisper.cpp ---"
-    if [[ ! -d "${DEPS_DIR}/whisper-src" ]]; then
-        deps_fetch whisper.cpp "${DOWNLOADS_DIR}/whisper.cpp.tar.gz"
-        mkdir -p "${DEPS_DIR}/whisper-src"
-        tar -xzf "${DOWNLOADS_DIR}/whisper.cpp.tar.gz" -C "${DEPS_DIR}/whisper-src" --strip-components=1
-    fi
     # GGML_NATIVE=OFF: ggml otherwise compiles with -march=native and ignores the
     # GGML_AVX* flags below. The build is cached across CI runners with different
     # CPUs, so a native build crashes with SIGILL when restored on an older one.
@@ -59,10 +64,11 @@ fi
 # ------------------------------------------------------------------
 # ONNX Runtime
 # ------------------------------------------------------------------
-if [[ ! -d "${DEPS_DIR}/onnxruntime-linux-x64-1.18.0" ]]; then
-    echo "--- Downloading ONNX Runtime ---"
-    deps_fetch onnxruntime "${DOWNLOADS_DIR}/onnxruntime.tgz"
-    tar -xzf "${DOWNLOADS_DIR}/onnxruntime.tgz" -C "${DEPS_DIR}"
+# Directory names carry the pinned version, as CMakeLists.txt expects them.
+ORT_DIR="${DEPS_DIR}/onnxruntime-linux-x64-$(deps_lock_field onnxruntime version)"
+if ! deps_is_current onnxruntime "${ORT_DIR}"; then
+    echo "--- Unpacking ONNX Runtime ---"
+    deps_unpack onnxruntime "${DOWNLOADS_DIR}/onnxruntime.tgz" "${ORT_DIR}" --strip-components=1
 else
     echo "--- ONNX Runtime already present ---"
 fi
@@ -70,21 +76,23 @@ fi
 # ------------------------------------------------------------------
 # Tesseract headers + leptonica build
 # ------------------------------------------------------------------
-if [[ ! -d "${DEPS_DIR}/tesseract-5.5.2/src/api" ]]; then
-    echo "--- Downloading Tesseract headers ---"
-    deps_fetch tesseract "${DOWNLOADS_DIR}/tesseract.tar.gz"
-    tar -xzf "${DOWNLOADS_DIR}/tesseract.tar.gz" -C "${DEPS_DIR}"
+TESS_DIR="${DEPS_DIR}/tesseract-$(deps_lock_field tesseract version)"
+if ! deps_is_current tesseract "${TESS_DIR}"; then
+    echo "--- Unpacking Tesseract headers ---"
+    deps_unpack tesseract "${DOWNLOADS_DIR}/tesseract.tar.gz" "${TESS_DIR}" --strip-components=1
 else
     echo "--- Tesseract headers already present ---"
 fi
 
+LEPT_DIR="${DEPS_DIR}/leptonica-$(deps_lock_field leptonica version)"
+if ! deps_is_current leptonica "${LEPT_DIR}"; then
+    echo "--- Unpacking leptonica ---"
+    rm -rf "${DEPS_DIR}/leptonica-build"
+    deps_unpack leptonica "${DOWNLOADS_DIR}/leptonica.tar.gz" "${LEPT_DIR}" --strip-components=1
+fi
 if [[ ! -f "${DEPS_DIR}/leptonica-build/src/libleptonica.a" ]]; then
     echo "--- Building leptonica ---"
-    if [[ ! -d "${DEPS_DIR}/leptonica-1.87.0" ]]; then
-        deps_fetch leptonica "${DOWNLOADS_DIR}/leptonica.tar.gz"
-        tar -xzf "${DOWNLOADS_DIR}/leptonica.tar.gz" -C "${DEPS_DIR}"
-    fi
-    cmake -S "${DEPS_DIR}/leptonica-1.87.0" -B "${DEPS_DIR}/leptonica-build" \
+    cmake -S "${LEPT_DIR}" -B "${DEPS_DIR}/leptonica-build" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         -DBUILD_SHARED_LIBS=OFF
