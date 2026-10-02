@@ -76,7 +76,7 @@ sudo apt-get install -y cmake build-essential pkg-config git wget curl ffmpeg \
 # Python generates the tiny ONNX test models and checks the CLI smoke test's JSON;
 # the library and CLIs never use it. deps/ is git-ignored.
 python3 -m venv deps/venv && . deps/venv/bin/activate
-pip install onnx numpy protobuf
+pip install --require-hashes -r scripts/deps/requirements-test-models.txt
 
 # Builds whisper.cpp and Leptonica, fetches ONNX Runtime, the Tesseract headers and
 # the whisper tiny model, and generates the test models and tests/data/sample_video.mp4.

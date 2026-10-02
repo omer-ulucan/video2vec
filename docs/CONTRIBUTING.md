@@ -27,6 +27,10 @@ test(sync): add drift correction test
 docs(api): document embedding backend
 ```
 
+### Dependencies
+
+Every third-party download is pinned by SHA-256 in `deps.lock` and verified before use. Add or update a pin there, never as an unpinned URL in a script or CMake file; see [Pinned downloads](BUILDING.md#pinned-downloads).
+
 ### Testing
 
 All changes must include tests:
