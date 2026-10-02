@@ -93,7 +93,7 @@ jobs:
             nlohmann-json3-dev libvips-dev libtesseract-dev tesseract-ocr-eng \
             libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git wget ffmpeg
       - name: Install Python dependencies
-        run: pip3 install onnx numpy protobuf
+        run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
       - name: Cache custom dependencies
         uses: actions/cache@v4
         with:
@@ -128,7 +128,7 @@ jobs:
             nlohmann-json3-dev libvips-dev libtesseract-dev tesseract-ocr-eng \
             libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git wget ffmpeg
       - name: Install Python dependencies
-        run: pip3 install onnx numpy protobuf
+        run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
       - name: Cache custom dependencies
         uses: actions/cache@v4
         with:
@@ -168,7 +168,7 @@ jobs:
             nlohmann-json3-dev libtesseract-dev tesseract-ocr-eng libleptonica-dev \
             libgtest-dev python3-pip git wget ffmpeg
       - name: Install Python dependencies
-        run: pip3 install onnx numpy protobuf
+        run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
       - name: Cache custom dependencies
         uses: actions/cache@v4
         with:

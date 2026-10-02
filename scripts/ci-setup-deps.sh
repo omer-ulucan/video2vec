@@ -100,7 +100,7 @@ fi
 # ------------------------------------------------------------------
 if ! python3 -c "import onnx" 2>/dev/null; then
     echo "--- Installing Python onnx package ---"
-    pip3 install onnx numpy protobuf
+    pip3 install --require-hashes -r "${SCRIPT_DIR}/deps/requirements-test-models.txt"
 fi
 
 # ------------------------------------------------------------------
@@ -147,7 +147,8 @@ os.makedirs("tests/models", exist_ok=True)
 onnx.save(model, "tests/models/tiny_image.onnx")
 PYEOF
     else
-        echo "ERROR: Python/onnx not available. Install it: pip3 install onnx"
+        echo "ERROR: Python/onnx not available. Install it:" \
+            "pip install --require-hashes -r scripts/deps/requirements-test-models.txt"
         exit 1
     fi
 else
@@ -177,7 +178,8 @@ os.makedirs("tests/models", exist_ok=True)
 onnx.save(model, "tests/models/tiny_embedding.onnx")
 PYEOF
     else
-        echo "ERROR: Python/onnx not available. Install it: pip3 install onnx"
+        echo "ERROR: Python/onnx not available. Install it:" \
+            "pip install --require-hashes -r scripts/deps/requirements-test-models.txt"
         exit 1
     fi
 else
