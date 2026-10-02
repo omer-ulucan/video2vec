@@ -22,7 +22,7 @@ dependency script below is a bash script.
 Note that whisper.cpp, ONNX Runtime and Tesseract are required: CMake stops
 with an error when any of them is missing.
 
-## Quick start (Ubuntu)
+## Quick start (Ubuntu 24.04, x86_64)
 
 ```bash
 sudo apt-get install -y cmake build-essential ninja-build pkg-config git wget curl \
@@ -44,15 +44,20 @@ The CLI tools land in `build/src/cli/` (`video2vec`, `load-to-llm`, `vec2index`,
 
 ## Pinned downloads
 
-Every third-party download is pinned in [`deps.lock`](../deps.lock) by version, SHA-256 and URL, and is checked before anything uses it:
+Every file the build scripts, CMake and CI download from a URL is pinned by version, SHA-256 and URL in [`deps.lock`](../deps.lock) and checked before use:
 
-- `scripts/ci-setup-deps.sh` downloads through `deps_fetch` (`scripts/deps/lock.sh`). A file already in `deps/` or `tests/models/` is re-checked rather than trusted; a mismatch stops the script and leaves the file in place (delete it to download it again).
-- The CMake FetchContent fallbacks read their URL and hash from the same file (`cmake/DepsLock.cmake`), so CMake verifies each archive before extracting it, and configuration stops if an entry is missing.
-- The Python packages for the test models and the lint tools are installed with `pip install --require-hashes` from `scripts/deps/requirements-*.txt`. The hashes are for CPython 3.12 on Linux x86_64, as on Ubuntu 24.04 and in CI.
-- CI tools are checked the same way: actionlint and lychee against their release SHA-256, the reuse image by digest.
-- The `deps-lock` CI job downloads every entry on each run, including fallbacks the build jobs never fetch, and reports each pin that no longer matches.
+- `scripts/ci-setup-deps.sh` downloads through `deps_fetch` (`scripts/deps/lock.sh`) and keeps verified archives in `deps/downloads/`, named after their hash. An unpacked tree in `deps/` records the pin it came from and is replaced, together with its build, when it does not match the current lock (an older pin, or a tree from before `deps.lock`). The whisper test model in `tests/models/` is re-hashed on every run. A mismatch stops the script and leaves the file in place; delete it to download it again.
+- The CMake FetchContent fallbacks read their URL and hash from the same file (`cmake/DepsLock.cmake`), so CMake verifies each archive before extracting it, and configuration stops if an entry is missing. CMake also takes the version-named directories of the unpacked dependencies from the lock.
+- CI installs actionlint and lychee from `deps.lock` the same way.
 
-To change a pin, update its version, URL and SHA-256 together in one commit. `scripts/deps/verify-lock.sh` checks every entry and prints the actual hash of each one that does not match.
+Pinned in their own formats:
+
+- Python packages for the test models and the lint tools are installed with `pip install --require-hashes` from `scripts/deps/requirements-*.txt`. The hashes are for CPython 3.12 on Linux x86_64, as on Ubuntu 24.04 and in CI.
+- The reuse container image runs by digest (`.github/workflows/ci.yml`).
+
+The `deps-lock` CI job downloads every `deps.lock` entry on each run, including fallbacks the build jobs never fetch, and reports each pin that no longer matches. To change a pin, update its version, URL and SHA-256 together in one commit; `scripts/deps/verify-lock.sh` prints the actual hash of each entry that does not match.
+
+Not covered: Ubuntu packages come from apt, which checks their signatures but does not pin versions. `vcpkg.json` and `conanfile.py` (below) resolve versions through their package managers.
 
 ## Build options
 
