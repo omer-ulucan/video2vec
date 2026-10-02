@@ -5,15 +5,21 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
 # CI dependency setup script for video2vec.
-# Downloads and builds all custom dependencies into the deps/ directory.
+# Downloads and builds all custom dependencies into the deps/ directory. Every
+# download goes through deps_fetch (scripts/deps/lock.sh), which checks it
+# against the SHA-256 pinned in deps.lock before it is unpacked or used.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DEPS_DIR="${ROOT_DIR}/deps"
+DOWNLOADS_DIR="${DEPS_DIR}/downloads"
 MODELS_DIR="${ROOT_DIR}/tests/models"
 
-mkdir -p "${DEPS_DIR}" "${MODELS_DIR}"
+# shellcheck source=deps/lock.sh
+. "${SCRIPT_DIR}/deps/lock.sh"
+
+mkdir -p "${DEPS_DIR}" "${DOWNLOADS_DIR}" "${MODELS_DIR}"
 
 echo "=== Setting up dependencies in ${DEPS_DIR} ==="
 
@@ -23,7 +29,9 @@ echo "=== Setting up dependencies in ${DEPS_DIR} ==="
 if [[ ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.a" && ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.so" ]]; then
     echo "--- Building whisper.cpp ---"
     if [[ ! -d "${DEPS_DIR}/whisper-src" ]]; then
-        git clone --depth 1 --branch v1.7.2 https://github.com/ggerganov/whisper.cpp.git "${DEPS_DIR}/whisper-src"
+        deps_fetch whisper.cpp "${DOWNLOADS_DIR}/whisper.cpp.tar.gz"
+        mkdir -p "${DEPS_DIR}/whisper-src"
+        tar -xzf "${DOWNLOADS_DIR}/whisper.cpp.tar.gz" -C "${DEPS_DIR}/whisper-src" --strip-components=1
     fi
     # GGML_NATIVE=OFF: ggml otherwise compiles with -march=native and ignores the
     # GGML_AVX* flags below. The build is cached across CI runners with different
@@ -40,7 +48,7 @@ if [[ ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.a" && ! -f "${DEPS_DIR}/whi
         -DGGML_FMA=OFF \
         -DGGML_F16C=OFF \
         -DGGML_AVX512=OFF
-    cmake --build "${DEPS_DIR}/whisper-build" --parallel $(nproc)
+    cmake --build "${DEPS_DIR}/whisper-build" --parallel "$(nproc)"
     echo "--- whisper.cpp build complete ---"
     ls -la "${DEPS_DIR}/whisper-build/src/"
 else
@@ -53,9 +61,8 @@ fi
 # ------------------------------------------------------------------
 if [[ ! -d "${DEPS_DIR}/onnxruntime-linux-x64-1.18.0" ]]; then
     echo "--- Downloading ONNX Runtime ---"
-    ONNX_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.18.0/onnxruntime-linux-x64-1.18.0.tgz"
-    wget -q "${ONNX_URL}" -O "${DEPS_DIR}/onnxruntime-linux-x64-1.18.0.tgz"
-    tar -xzf "${DEPS_DIR}/onnxruntime-linux-x64-1.18.0.tgz" -C "${DEPS_DIR}"
+    deps_fetch onnxruntime "${DOWNLOADS_DIR}/onnxruntime.tgz"
+    tar -xzf "${DOWNLOADS_DIR}/onnxruntime.tgz" -C "${DEPS_DIR}"
 else
     echo "--- ONNX Runtime already present ---"
 fi
@@ -65,9 +72,8 @@ fi
 # ------------------------------------------------------------------
 if [[ ! -d "${DEPS_DIR}/tesseract-5.5.2/src/api" ]]; then
     echo "--- Downloading Tesseract headers ---"
-    TESS_URL="https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.2.tar.gz"
-    wget -q "${TESS_URL}" -O "${DEPS_DIR}/tesseract-5.5.2.tar.gz"
-    tar -xzf "${DEPS_DIR}/tesseract-5.5.2.tar.gz" -C "${DEPS_DIR}"
+    deps_fetch tesseract "${DOWNLOADS_DIR}/tesseract.tar.gz"
+    tar -xzf "${DOWNLOADS_DIR}/tesseract.tar.gz" -C "${DEPS_DIR}"
 else
     echo "--- Tesseract headers already present ---"
 fi
@@ -75,15 +81,14 @@ fi
 if [[ ! -f "${DEPS_DIR}/leptonica-build/src/libleptonica.a" ]]; then
     echo "--- Building leptonica ---"
     if [[ ! -d "${DEPS_DIR}/leptonica-1.87.0" ]]; then
-        LEPT_URL="https://github.com/DanBloomberg/leptonica/archive/refs/tags/1.87.0.tar.gz"
-        wget -q "${LEPT_URL}" -O "${DEPS_DIR}/leptonica-1.87.0.tar.gz"
-        tar -xzf "${DEPS_DIR}/leptonica-1.87.0.tar.gz" -C "${DEPS_DIR}"
+        deps_fetch leptonica "${DOWNLOADS_DIR}/leptonica.tar.gz"
+        tar -xzf "${DOWNLOADS_DIR}/leptonica.tar.gz" -C "${DEPS_DIR}"
     fi
     cmake -S "${DEPS_DIR}/leptonica-1.87.0" -B "${DEPS_DIR}/leptonica-build" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         -DBUILD_SHARED_LIBS=OFF
-    cmake --build "${DEPS_DIR}/leptonica-build" --parallel $(nproc)
+    cmake --build "${DEPS_DIR}/leptonica-build" --parallel "$(nproc)"
     echo "--- leptonica build complete ---"
     ls -la "${DEPS_DIR}/leptonica-build/src/" 2>/dev/null || true
 else
@@ -101,19 +106,9 @@ fi
 # ------------------------------------------------------------------
 # Test models
 # ------------------------------------------------------------------
-if [[ ! -f "${MODELS_DIR}/ggml-tiny.bin" ]]; then
-    echo "--- Downloading whisper model ---"
-    curl -f -L --retry 3 -o "${MODELS_DIR}/ggml-tiny.bin" \
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin"
-    # Validate file size (should be ~77MB)
-    filesize=$(stat -f%z "${MODELS_DIR}/ggml-tiny.bin" 2>/dev/null || stat -c%s "${MODELS_DIR}/ggml-tiny.bin")
-    if [ "$filesize" -lt 70000000 ]; then
-        echo "ERROR: Downloaded whisper model is too small ($filesize bytes)"
-        exit 1
-    fi
-else
-    echo "--- whisper model already present ---"
-fi
+# deps_fetch also re-checks a model restored from the CI cache.
+echo "--- whisper model (verified against deps.lock) ---"
+deps_fetch ggml-tiny "${MODELS_DIR}/ggml-tiny.bin"
 
 if [[ ! -f "${MODELS_DIR}/tiny_image.onnx" ]]; then
     echo "--- Downloading tiny_image.onnx ---"
