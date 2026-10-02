@@ -102,3 +102,31 @@ deps_fetch() {
     fi
     mv "${dest}.part" "${dest}"
 }
+
+# Name of the file in an unpacked tree that records the archive hash it came
+# from.
+_DEPS_STAMP=".deps-lock-sha256"
+
+# deps_is_current <name> <dir>: succeeds if <dir> was unpacked from the archive
+# currently pinned for <name>. A missing tree, a tree without a record (from
+# before deps.lock or unpacked by hand) or one from another pin is not current.
+deps_is_current() {
+    local name="$1" dir="$2" want
+    want="$(deps_lock_field "${name}" sha256 2>/dev/null)" || return 1
+    [[ -f "${dir}/${_DEPS_STAMP}" && "$(< "${dir}/${_DEPS_STAMP}")" == "${want}" ]]
+}
+
+# deps_unpack <name> <archive> <dir> [tar options...]: replaces <dir> with the
+# contents of the pinned archive for <name>, fetched and verified into <archive>
+# by deps_fetch, and records the pin in <dir>. Extra arguments go to tar (for
+# example --strip-components=1). Nothing is removed or unpacked unless the
+# archive matches its pin.
+deps_unpack() {
+    local name="$1" archive="$2" dir="$3"
+    shift 3
+    deps_fetch "${name}" "${archive}" || return 1
+    rm -rf "${dir}"
+    mkdir -p "${dir}"
+    tar -xf "${archive}" -C "${dir}" "$@" || return 1
+    deps_lock_field "${name}" sha256 > "${dir}/${_DEPS_STAMP}"
+}
