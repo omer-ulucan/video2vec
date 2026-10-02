@@ -21,13 +21,22 @@ printf 'pinned payload\n' > "${WORK}/artifact.bin"
 GOOD_SHA="$(deps_sha256 "${WORK}/artifact.bin")"
 ZERO_SHA="0000000000000000000000000000000000000000000000000000000000000000"
 
+# A source archive with one top-level directory, like a release tarball.
+mkdir -p "${WORK}/src/pkg-1.0"
+printf 'source\n' > "${WORK}/src/pkg-1.0/file.txt"
+tar -czf "${WORK}/pkg.tar.gz" -C "${WORK}/src" pkg-1.0
+PKG_SHA="$(deps_sha256 "${WORK}/pkg.tar.gz")"
+
 cat > "${WORK}/deps.lock" <<EOF
 # Test lock file: same format as the repository's deps.lock.
 good.dep      1.0   ${GOOD_SHA}   file://${WORK}/artifact.bin
 wrong-hash    1.0   ${ZERO_SHA}   file://${WORK}/artifact.bin
 offline-only  1.0   ${GOOD_SHA}   file://${WORK}/does-not-exist.bin
+pkg           1.0   ${PKG_SHA}    file://${WORK}/pkg.tar.gz
 truncated     1.0
 EOF
+# The same lock after a pin change for pkg (another archive hash).
+sed "s/${PKG_SHA}/${GOOD_SHA}/" "${WORK}/deps.lock" > "${WORK}/repinned.lock"
 export VIDEO2VEC_DEPS_LOCK="${WORK}/deps.lock"
 
 failures=0
@@ -90,6 +99,36 @@ expect_ok "mismatching partial removed" test ! -e "${WORK}/dl/wrong.bin.part"
 expect_fail "missing lock file" "lock file not found" \
     env VIDEO2VEC_DEPS_LOCK="${WORK}/nope.lock" \
     bash -c ". '${ROOT_DIR}/scripts/deps/lock.sh' && deps_lock_field good.dep url"
+
+# Unpacked trees record which pin they came from, so a tree from an older pin
+# or from before deps.lock existed is unpacked again instead of being reused.
+expect_false() {
+    local name="$1"; shift
+    if ( "$@" ) > /dev/null 2>&1; then
+        fail "${name} (succeeded, expected false)"
+    else
+        pass "${name}"
+    fi
+}
+expect_false "missing tree is not current" deps_is_current pkg "${WORK}/out/pkg"
+expect_ok "unpack a pinned archive" \
+    deps_unpack pkg "${WORK}/dl/pkg.tar.gz" "${WORK}/out/pkg" --strip-components=1
+expect_ok "archive contents in place" \
+    cmp -s "${WORK}/src/pkg-1.0/file.txt" "${WORK}/out/pkg/file.txt"
+expect_ok "unpacked tree is current" deps_is_current pkg "${WORK}/out/pkg"
+mkdir -p "${WORK}/out/legacy"
+printf 'old\n' > "${WORK}/out/legacy/file.txt"
+expect_false "tree without a record is not current" deps_is_current pkg "${WORK}/out/legacy"
+expect_false "tree from another pin is not current" \
+    env VIDEO2VEC_DEPS_LOCK="${WORK}/repinned.lock" \
+    bash -c ". '${ROOT_DIR}/scripts/deps/lock.sh' && deps_is_current pkg '${WORK}/out/pkg'"
+printf 'stale\n' > "${WORK}/out/pkg/leftover.txt"
+expect_ok "unpack replaces the old tree" \
+    deps_unpack pkg "${WORK}/dl/pkg.tar.gz" "${WORK}/out/pkg" --strip-components=1
+expect_ok "old files removed" test ! -e "${WORK}/out/pkg/leftover.txt"
+expect_fail "unpack refuses a mismatching archive" "checksum mismatch" \
+    deps_unpack wrong-hash "${WORK}/dl/wrong.tar.gz" "${WORK}/out/wrong"
+expect_ok "nothing unpacked on mismatch" test ! -e "${WORK}/out/wrong"
 
 if (( failures > 0 )); then
     echo "${failures} check(s) failed"
