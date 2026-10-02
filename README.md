@@ -68,7 +68,7 @@ git clone https://github.com/omer-ulucan/video2vec.git
 cd video2vec
 
 sudo apt-get update
-sudo apt-get install -y cmake build-essential pkg-config git wget curl ffmpeg \
+sudo apt-get install -y cmake build-essential pkg-config git curl ffmpeg \
     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
     libtesseract-dev tesseract-ocr-eng libleptonica-dev libvips-dev \
     nlohmann-json3-dev libgtest-dev libbenchmark-dev python3-venv
