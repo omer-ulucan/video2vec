@@ -125,12 +125,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            deps/whisper-build
-            deps/whisper-src
-            deps/onnxruntime-linux-x64-1.18.0
-            deps/tesseract-5.5.2
-            deps/leptonica-build
-            deps/leptonica-1.87.0
+            deps
+            !deps/downloads
             tests/models
             tests/data
           key: >-
@@ -138,6 +134,19 @@ jobs:
             'scripts/deps/**') }}
       - name: Setup custom dependencies
         run: scripts/ci-setup-deps.sh
+      - name: A corrupted download stops the setup
+        # Build-level proof behind deps.lock: with everything else in place, a
+        # damaged copy of the cached whisper model must fail the setup.
+        run: |
+          model=tests/models/ggml-tiny.bin
+          cp "$model" "$RUNNER_TEMP/model.bak"
+          printf 'x' >> "$model"
+          if scripts/ci-setup-deps.sh > "$RUNNER_TEMP/setup.log" 2>&1; then
+            echo "the setup accepted a corrupted model"
+            exit 1
+          fi
+          grep 'checksum mismatch' "$RUNNER_TEMP/setup.log"
+          mv "$RUNNER_TEMP/model.bak" "$model"
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
       - name: Build
@@ -162,12 +171,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            deps/whisper-build
-            deps/whisper-src
-            deps/onnxruntime-linux-x64-1.18.0
-            deps/tesseract-5.5.2
-            deps/leptonica-build
-            deps/leptonica-1.87.0
+            deps
+            !deps/downloads
             tests/models
             tests/data
           key: >-
@@ -204,12 +209,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            deps/whisper-build
-            deps/whisper-src
-            deps/onnxruntime-linux-x64-1.18.0
-            deps/tesseract-5.5.2
-            deps/leptonica-build
-            deps/leptonica-1.87.0
+            deps
+            !deps/downloads
             tests/models
             tests/data
           key: >-
