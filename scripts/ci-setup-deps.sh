@@ -5,26 +5,39 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
 # CI dependency setup script for video2vec.
-# Downloads and builds all custom dependencies into the deps/ directory.
+# Downloads and builds all custom dependencies into the deps/ directory. Every
+# download goes through deps_fetch (scripts/deps/lock.sh), which checks it
+# against the SHA-256 pinned in deps.lock before it is unpacked or used.
+# Unpacked trees record the pin they came from and are replaced (with their
+# builds) when it changes, so nothing in deps/ predates the current lock.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DEPS_DIR="${ROOT_DIR}/deps"
+DOWNLOADS_DIR="${DEPS_DIR}/downloads"
 MODELS_DIR="${ROOT_DIR}/tests/models"
 
-mkdir -p "${DEPS_DIR}" "${MODELS_DIR}"
+# shellcheck source=deps/lock.sh
+. "${SCRIPT_DIR}/deps/lock.sh"
+
+mkdir -p "${DEPS_DIR}" "${DOWNLOADS_DIR}" "${MODELS_DIR}"
 
 echo "=== Setting up dependencies in ${DEPS_DIR} ==="
 
 # ------------------------------------------------------------------
 # whisper.cpp
 # ------------------------------------------------------------------
-if [[ ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.a" && ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.so" ]]; then
+# A source tree that does not match its pin (older lock, or unpacked before
+# deps.lock existed) is replaced from a verified archive, and its build with it.
+if ! deps_is_current whisper.cpp "${DEPS_DIR}/whisper-src"; then
+    echo "--- Unpacking whisper.cpp ---"
+    rm -rf "${DEPS_DIR}/whisper-build"
+    deps_unpack whisper.cpp "${DOWNLOADS_DIR}" "${DEPS_DIR}/whisper-src" --strip-components=1
+fi
+WHISPER_LIB="${DEPS_DIR}/whisper-build/src/libwhisper"
+if [[ ! -f "${WHISPER_LIB}.a" && ! -f "${WHISPER_LIB}.so" ]]; then
     echo "--- Building whisper.cpp ---"
-    if [[ ! -d "${DEPS_DIR}/whisper-src" ]]; then
-        git clone --depth 1 --branch v1.7.2 https://github.com/ggerganov/whisper.cpp.git "${DEPS_DIR}/whisper-src"
-    fi
     # GGML_NATIVE=OFF: ggml otherwise compiles with -march=native and ignores the
     # GGML_AVX* flags below. The build is cached across CI runners with different
     # CPUs, so a native build crashes with SIGILL when restored on an older one.
@@ -40,7 +53,7 @@ if [[ ! -f "${DEPS_DIR}/whisper-build/src/libwhisper.a" && ! -f "${DEPS_DIR}/whi
         -DGGML_FMA=OFF \
         -DGGML_F16C=OFF \
         -DGGML_AVX512=OFF
-    cmake --build "${DEPS_DIR}/whisper-build" --parallel $(nproc)
+    cmake --build "${DEPS_DIR}/whisper-build" --parallel "$(nproc)"
     echo "--- whisper.cpp build complete ---"
     ls -la "${DEPS_DIR}/whisper-build/src/"
 else
@@ -51,11 +64,11 @@ fi
 # ------------------------------------------------------------------
 # ONNX Runtime
 # ------------------------------------------------------------------
-if [[ ! -d "${DEPS_DIR}/onnxruntime-linux-x64-1.18.0" ]]; then
-    echo "--- Downloading ONNX Runtime ---"
-    ONNX_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.18.0/onnxruntime-linux-x64-1.18.0.tgz"
-    wget -q "${ONNX_URL}" -O "${DEPS_DIR}/onnxruntime-linux-x64-1.18.0.tgz"
-    tar -xzf "${DEPS_DIR}/onnxruntime-linux-x64-1.18.0.tgz" -C "${DEPS_DIR}"
+# Directory names carry the pinned version, as CMakeLists.txt expects them.
+ORT_DIR="${DEPS_DIR}/onnxruntime-linux-x64-$(deps_lock_field onnxruntime version)"
+if ! deps_is_current onnxruntime "${ORT_DIR}"; then
+    echo "--- Unpacking ONNX Runtime ---"
+    deps_unpack onnxruntime "${DOWNLOADS_DIR}" "${ORT_DIR}" --strip-components=1
 else
     echo "--- ONNX Runtime already present ---"
 fi
@@ -63,27 +76,27 @@ fi
 # ------------------------------------------------------------------
 # Tesseract headers + leptonica build
 # ------------------------------------------------------------------
-if [[ ! -d "${DEPS_DIR}/tesseract-5.5.2/src/api" ]]; then
-    echo "--- Downloading Tesseract headers ---"
-    TESS_URL="https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.2.tar.gz"
-    wget -q "${TESS_URL}" -O "${DEPS_DIR}/tesseract-5.5.2.tar.gz"
-    tar -xzf "${DEPS_DIR}/tesseract-5.5.2.tar.gz" -C "${DEPS_DIR}"
+TESS_DIR="${DEPS_DIR}/tesseract-$(deps_lock_field tesseract version)"
+if ! deps_is_current tesseract "${TESS_DIR}"; then
+    echo "--- Unpacking Tesseract headers ---"
+    deps_unpack tesseract "${DOWNLOADS_DIR}" "${TESS_DIR}" --strip-components=1
 else
     echo "--- Tesseract headers already present ---"
 fi
 
+LEPT_DIR="${DEPS_DIR}/leptonica-$(deps_lock_field leptonica version)"
+if ! deps_is_current leptonica "${LEPT_DIR}"; then
+    echo "--- Unpacking leptonica ---"
+    rm -rf "${DEPS_DIR}/leptonica-build"
+    deps_unpack leptonica "${DOWNLOADS_DIR}" "${LEPT_DIR}" --strip-components=1
+fi
 if [[ ! -f "${DEPS_DIR}/leptonica-build/src/libleptonica.a" ]]; then
     echo "--- Building leptonica ---"
-    if [[ ! -d "${DEPS_DIR}/leptonica-1.87.0" ]]; then
-        LEPT_URL="https://github.com/DanBloomberg/leptonica/archive/refs/tags/1.87.0.tar.gz"
-        wget -q "${LEPT_URL}" -O "${DEPS_DIR}/leptonica-1.87.0.tar.gz"
-        tar -xzf "${DEPS_DIR}/leptonica-1.87.0.tar.gz" -C "${DEPS_DIR}"
-    fi
-    cmake -S "${DEPS_DIR}/leptonica-1.87.0" -B "${DEPS_DIR}/leptonica-build" \
+    cmake -S "${LEPT_DIR}" -B "${DEPS_DIR}/leptonica-build" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         -DBUILD_SHARED_LIBS=OFF
-    cmake --build "${DEPS_DIR}/leptonica-build" --parallel $(nproc)
+    cmake --build "${DEPS_DIR}/leptonica-build" --parallel "$(nproc)"
     echo "--- leptonica build complete ---"
     ls -la "${DEPS_DIR}/leptonica-build/src/" 2>/dev/null || true
 else
@@ -95,25 +108,15 @@ fi
 # ------------------------------------------------------------------
 if ! python3 -c "import onnx" 2>/dev/null; then
     echo "--- Installing Python onnx package ---"
-    pip3 install onnx numpy protobuf
+    pip3 install --require-hashes -r "${SCRIPT_DIR}/deps/requirements-test-models.txt"
 fi
 
 # ------------------------------------------------------------------
 # Test models
 # ------------------------------------------------------------------
-if [[ ! -f "${MODELS_DIR}/ggml-tiny.bin" ]]; then
-    echo "--- Downloading whisper model ---"
-    curl -f -L --retry 3 -o "${MODELS_DIR}/ggml-tiny.bin" \
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin"
-    # Validate file size (should be ~77MB)
-    filesize=$(stat -f%z "${MODELS_DIR}/ggml-tiny.bin" 2>/dev/null || stat -c%s "${MODELS_DIR}/ggml-tiny.bin")
-    if [ "$filesize" -lt 70000000 ]; then
-        echo "ERROR: Downloaded whisper model is too small ($filesize bytes)"
-        exit 1
-    fi
-else
-    echo "--- whisper model already present ---"
-fi
+# deps_fetch also re-checks a model restored from the CI cache.
+echo "--- whisper model (verified against deps.lock) ---"
+deps_fetch ggml-tiny "${MODELS_DIR}/ggml-tiny.bin"
 
 if [[ ! -f "${MODELS_DIR}/tiny_image.onnx" ]]; then
     echo "--- Downloading tiny_image.onnx ---"
@@ -152,7 +155,8 @@ os.makedirs("tests/models", exist_ok=True)
 onnx.save(model, "tests/models/tiny_image.onnx")
 PYEOF
     else
-        echo "ERROR: Python/onnx not available. Install it: pip3 install onnx"
+        echo "ERROR: Python/onnx not available. Install it:" \
+            "pip install --require-hashes -r scripts/deps/requirements-test-models.txt"
         exit 1
     fi
 else
@@ -182,7 +186,8 @@ os.makedirs("tests/models", exist_ok=True)
 onnx.save(model, "tests/models/tiny_embedding.onnx")
 PYEOF
     else
-        echo "ERROR: Python/onnx not available. Install it: pip3 install onnx"
+        echo "ERROR: Python/onnx not available. Install it:" \
+            "pip install --require-hashes -r scripts/deps/requirements-test-models.txt"
         exit 1
     fi
 else

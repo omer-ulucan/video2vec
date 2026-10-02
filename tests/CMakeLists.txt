@@ -8,12 +8,7 @@ if(NOT GTest_FOUND)
     find_package(googletest QUIET)
 endif()
 if(NOT GTest_FOUND AND NOT googletest_FOUND)
-    include(FetchContent)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.14.0
-    )
+    video2vec_fetchcontent_declare(googletest)
     FetchContent_MakeAvailable(googletest)
     if(NOT TARGET GTest::gtest_main)
         add_library(GTest::gtest_main ALIAS gtest_main)
@@ -64,6 +59,15 @@ if(BUILD_CLI)
         COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/smoke.sh $<TARGET_FILE_DIR:video2vec-cli>)
     set_tests_properties(cli_smoke PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
 endif()
+
+# Dependency pinning: downloads are checked against deps.lock before use.
+# Offline (file:// URLs), so it runs in every build.
+add_test(NAME deps_fetch
+    COMMAND bash ${CMAKE_SOURCE_DIR}/tests/deps/test_fetch_verified.sh)
+add_test(NAME deps_verify_lock
+    COMMAND bash ${CMAKE_SOURCE_DIR}/tests/deps/test_verify_lock.sh)
+add_test(NAME deps_lock_cmake
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/tests/deps/test_deps_lock.cmake)
 
 # SDK consumer test: verify find_package(video2vec) works after install
 set(SDK_CONSUMER_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/sdk_consumer_install")

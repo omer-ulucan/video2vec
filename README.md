@@ -68,7 +68,7 @@ git clone https://github.com/omer-ulucan/video2vec.git
 cd video2vec
 
 sudo apt-get update
-sudo apt-get install -y cmake build-essential pkg-config git wget curl ffmpeg \
+sudo apt-get install -y cmake build-essential pkg-config git curl ffmpeg \
     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
     libtesseract-dev tesseract-ocr-eng libleptonica-dev libvips-dev \
     nlohmann-json3-dev libgtest-dev libbenchmark-dev python3-venv
@@ -76,7 +76,7 @@ sudo apt-get install -y cmake build-essential pkg-config git wget curl ffmpeg \
 # Python generates the tiny ONNX test models and checks the CLI smoke test's JSON;
 # the library and CLIs never use it. deps/ is git-ignored.
 python3 -m venv deps/venv && . deps/venv/bin/activate
-pip install onnx numpy protobuf
+pip install --require-hashes -r scripts/deps/requirements-test-models.txt
 
 # Builds whisper.cpp and Leptonica, fetches ONNX Runtime, the Tesseract headers and
 # the whisper tiny model, and generates the test models and tests/data/sample_video.mp4.
