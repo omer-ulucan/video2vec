@@ -2,222 +2,165 @@
 
 [![CI](https://github.com/omer-ulucan/video2vec/actions/workflows/ci.yml/badge.svg)](https://github.com/omer-ulucan/video2vec/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](#license)
-[![Version](https://img.shields.io/badge/version-0.2.0-green.svg)](https://github.com/omer-ulucan/video2vec/releases/tag/v0.2.0)
+[![Release](https://img.shields.io/github/v/release/omer-ulucan/video2vec)](https://github.com/omer-ulucan/video2vec/releases)
 
-**Pure C++ semantic video to LLM pipeline.**
+**Turn lecture and tutorial videos into time-aligned transcripts, on-screen text and embeddings for LLMs.**
 
-video2vec turns a lecture or tutorial video into time-aligned, searchable data **without summarizing or pruning** it. It decodes the video and audio with FFmpeg, transcribes the speech with whisper.cpp (word-level timestamps), reads on-screen text with Tesseract (per-line bounding boxes and confidence), embeds visual patches with an ONNX model, and packages everything per time window into a compact `.vec` container. Companion tools turn a `.vec` into LLM context, build a vector index from it, and query that index.
+video2vec is for developers who build search, question answering or retrieval-augmented generation over recorded lectures, talks and tutorials. It extracts what a video says and shows: the full speech transcript with word timings, the text on screen with its position, and visual embeddings. Words, frames and embeddings carry millisecond timestamps on the media timeline, and on-screen text is placed by the window it was read in, so an answer can point back to the moment it came from. It is a C++20 library and command-line toolset built on FFmpeg, whisper.cpp, Tesseract and ONNX Runtime, with no Python at run time.
 
-## Features
+The design goal is **no summarization and no information loss**: video2vec keeps what the engines produce instead of condensing it. Today nothing is summarized, but frames and image patches are sampled and the LLM export cuts long transcripts by default; removing those losses is the main work of 0.3.0 (see [Known limitations](#known-limitations-02x)).
 
-- **Per-window pipeline:** the media timeline is cut into overlapping windows (45 s / 5 s by default); every window carries its transcript, word timings, OCR lines and patch embeddings, all in milliseconds on the media timeline
-- **Full transcript and OCR:** nothing is summarized; words keep their start time, duration and confidence, OCR lines keep their bounding box and confidence
-- **Visual evidence:** frames are scored and de-duplicated per window, patches are cut around OCR lines (or on a grid), embedded, and optionally kept as pixels with `--save-proof`
-- **Versioned `.vec` container:** a small, bounds-checked binary format that round-trips every field (see `include/video2vec/flatbuffers/packager.hpp` for the layout)
-- **Index and query:** a FAISS-backed store (with a linear-scan fallback when FAISS is absent) with cosine / inner-product / L2 ranking, persistence, time filters and a query engine with temporal merging and keyword-boosted hybrid search
-- **Pure C++20:** no Python at runtime; Python is only used to generate the tiny ONNX test models
+> **Project stage:** 0.x. The pipeline works end to end and is tested in CI, but it is not production-ready yet and the API is not frozen. The [roadmap](#roadmap) leads to a stable 1.0 with a C ABI, a query/MCP server, vector-database integrations and a Python package.
 
-### Backends
+## Status
 
-| Task | Backend | Notes |
-|------|---------|-------|
-| Demux / decode | FFmpeg 6+ | software decoding, mono 16 kHz resampling for ASR |
-| Speech recognition | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) | language auto-detection, word timestamps, CPU |
-| OCR | Tesseract 5 + Leptonica | per-line text, bbox, confidence |
-| Embeddings | ONNX Runtime | image models with a `[N,3,H,W]` float input; text models with a float `[N,dim]` input (see limitations) |
-| PNG encoding | libvips (optional) | a built-in encoder is used when libvips is missing |
-| Vector search | FAISS (optional) | linear scan otherwise |
+What exists in the current release (0.2.x), how mature it is, and when the rest is planned.
 
-### Developer experience
+- **Beta:** shipped and tested in CI, with the limitations listed below; interfaces and file formats can still change in a 0.x minor release, always recorded in the changelog.
+- **Stable:** compatibility guaranteed. Nothing is Stable yet; the first Stable pieces are the `.vec` v3 format (0.3.0) and the C ABI (0.4.0).
+- **Planned:** not in this release; the target release is given.
 
-- Opaque FFmpeg handles: no third-party types in the public headers
-- `find_package(video2vec)` via CMake `install(EXPORT)`, with an SDK consumer test in CI
-- Unit tests per module, integration tests against the real backends, an end-to-end test on a generated sample video, and a CLI smoke test; all run under ASan and UBSan in CI
-- An honest audit trail: [AUDIT.md](AUDIT.md) lists what the 2026-09 re-audit found, fixed and left open
+| Component | Maturity | Today (0.2.x) | Planned |
+|-----------|----------|---------------|---------|
+| Decoding | Beta | FFmpeg software decoding; audio resampled to 16 kHz mono | Public decoding API, input limits for untrusted media (0.3.0) |
+| Speech | Beta | whisper.cpp transcript with word timings and confidence; language auto-detected per window | Voice-activity detection and silence-aligned chunks without duplicated words (0.5.0) |
+| On-screen text | Beta | Tesseract lines with bounding box and confidence, on the frames selected per window | Scene detection so every distinct frame is read once (0.3.0); PaddleOCR backend (0.5.0) |
+| Visual embeddings | Beta | ONNX image-model embeddings of patches cut from the selected frames | Model-specific preprocessing (CLIP/SigLIP) and a paired text encoder (0.6.0) |
+| Output container | Beta | Versioned, bounds-checked `.vec` file | Streamable `.vec` v3 with checksums and per-chunk records (0.3.0) |
+| LLM export | Beta | `load-to-llm`: Markdown, JSON or plain text per window | Windowed export that marks every cut (0.3.0) |
+| Search | Beta (vector search only) | Vector index and query CLIs: exact scan, or FAISS when found at build time (not yet tested in CI, see [#41](https://github.com/omer-ulucan/video2vec/issues/41)); text queries need a float-input model, not a real text encoder | Real text embeddings and BM25 + vector hybrid search (0.6.0) |
+| C++ SDK | Beta | CMake package with one library per module; the pipeline itself lives in the `video2vec` CLI | One SDK library with a public pipeline API (0.3.0) |
+| Devices | Beta (CPU only) | CPU only, no device selection | Device model with per-stage selection (0.3.0); plugin model (0.4.0); GPU plugins: CUDA (+TensorRT), Vulkan, Metal/CoreML (1.1), WebGPU (1.2) |
+| C ABI | Planned | — | Stable, append-only C ABI (0.4.0) |
+| Query server / MCP | Planned | — | MCP (stdio and HTTP) and REST server with auth and TLS (0.7.0) |
+| Vector databases | Planned | — | Qdrant and Milvus stores (0.7.0) |
+| Python | Planned | — | `pip install video2vec`, CPU (0.9.0) |
 
-## Quick start (Ubuntu)
+### Known limitations (0.2.x)
+
+- **Frames and patches are sampled:** one frame per second is sampled, at most 6 of them per 45-second window are kept, and each kept frame yields at most 8 text-line patches, topped up from a 3×3 grid only to 4 patches. Text or detail outside those is not read or embedded.
+- **Text search needs a real tokenizer:** `encode_text` uses a placeholder character encoding and rejects token-id models, so semantic text search does not work with real text-embedding models yet.
+- **Overlapping windows duplicate data:** words in the 5-second overlaps appear in two windows, and so can OCR lines.
+- **The LLM export cuts long transcripts:** `load-to-llm` keeps only the first `--max-chars` bytes (default 2000) of each window's transcript and does not mark the cut. Pass a larger value to keep everything; the JSON format also lists every word in full.
+- **Engine failures drop data:** if transcription, OCR or embedding fails on a window or frame, the CLI continues without that data and logs only the first failure of each kind. A final window with less than 1 s of audio is not transcribed.
+- **Logs go to stdout,** mixed with piped output; write results with `--out` rather than shell redirection.
+- **Memory grows with video length:** the whole audio track and all windows are kept in memory until the output is written.
+- **CPU only,** and backends and the vector store are not thread-safe (use one instance per thread).
+- `.vec` and index files from 0.1.0 are rejected; regenerate them.
+
+## How it works
+
+The `video2vec` CLI runs the whole pipeline in one process:
+
+1. FFmpeg decodes the video once. The audio is resampled to 16 kHz mono and kept in memory; one frame per second (`--frame-interval`) is sampled and assigned to overlapping 45-second windows (`--win`, `--overlap`).
+2. As each window closes during decoding, the frame selector keeps up to 6 of its frames. Tesseract reads their text, and an ONNX image model embeds patches: one per text line (up to 8), topped up from a 3×3 grid when there are fewer than 4.
+3. After decoding, whisper.cpp transcribes each window's audio, and the word timings are shifted onto the media timeline.
+4. All windows are packed into one `.vec` file. `vec2index` builds a vector index from it, `ask` and `qa` query that index, and `load-to-llm` renders the file as Markdown, JSON or text.
+
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the module-level details; parts of it are outdated and are being corrected for 0.2.1.
+
+## Quick start (Ubuntu 24.04)
+
+These are the CI build steps with two differences: pip runs in a virtual environment (stock Ubuntu 24.04 refuses system-wide pip installs; CI runners allow them), and `pkg-config` and `curl` are listed because runners have them preinstalled.
 
 ```bash
 git clone https://github.com/omer-ulucan/video2vec.git
 cd video2vec
 
-# System packages
 sudo apt-get update
-sudo apt-get install -y cmake build-essential ninja-build pkg-config git wget curl \
-    libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg \
+sudo apt-get install -y cmake build-essential pkg-config git wget curl ffmpeg \
+    libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
     libtesseract-dev tesseract-ocr-eng libleptonica-dev libvips-dev \
-    nlohmann-json3-dev libgtest-dev libbenchmark-dev python3-pip
-pip3 install onnx numpy protobuf
+    nlohmann-json3-dev libgtest-dev libbenchmark-dev python3-venv
 
-# whisper.cpp, ONNX Runtime, Tesseract headers, leptonica, test models and tests/data/sample_video.mp4
+# Python generates the tiny ONNX test models and checks the CLI smoke test's JSON;
+# the library and CLIs never use it. deps/ is git-ignored.
+python3 -m venv deps/venv && . deps/venv/bin/activate
+pip install onnx numpy protobuf
+
+# Builds whisper.cpp and Leptonica, fetches ONNX Runtime, the Tesseract headers and
+# the whisper tiny model, and generates the test models and tests/data/sample_video.mp4.
 scripts/ci-setup-deps.sh
 
-# Configure, build, test
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
+cmake --build build --parallel "$(nproc)"
 ctest --test-dir build --output-on-failure
 ```
 
-Run the pipeline on a video, then use the result:
+Process the generated sample video with the tiny test models and turn the result into LLM context:
 
 ```bash
-# ASR (whisper), OCR (Tesseract, --ocr-lang eng by default) and visual patch
-# embeddings (ONNX image model), per 45 s window with 5 s overlap
-./build/src/cli/video2vec --in lecture.mp4 --out lecture.vec --win 45000 --overlap 5000 \
-    --whisper-model models/ggml-base.bin --embedding-model models/image_encoder.onnx
+# Transcript (whisper), on-screen text (Tesseract) and visual patch embeddings
+# (ONNX image model), in 45 s windows with 5 s overlap
+./build/src/cli/video2vec --in tests/data/sample_video.mp4 --out build/sample.vec \
+    --whisper-model tests/models/ggml-tiny.bin --embedding-model tests/models/tiny_image.onnx
 
-# LLM context (markdown, json or text)
-./build/src/cli/load-to-llm --vec lecture.vec --format markdown > lecture.md
-
-# Vector index: visual embeddings from the .vec, transcript words and OCR lines
-# embedded with a text model, then queries against it
-./build/src/cli/vec2index --vec lecture.vec --out lecture.idx --model models/text_encoder.onnx --dim 512
-./build/src/cli/ask --db lecture.idx --model models/text_encoder.onnx -q "gradient descent"
-./build/src/cli/qa  --db lecture.idx --model models/text_encoder.onnx        # interactive
+# Transcript and on-screen text per window as Markdown (or json / text) for an LLM prompt
+./build/src/cli/load-to-llm --vec build/sample.vec --format markdown --out build/sample.md
 ```
 
-`scripts/smoke.sh build/src/cli` runs exactly this chain on the generated sample video with the tiny test models.
+For real videos, use a larger [whisper.cpp model](https://github.com/ggml-org/whisper.cpp/tree/master/models) and an ONNX image-embedding model. `scripts/smoke.sh build/src/cli` runs the full tool chain (including `vec2index`, `ask` and `qa`) on the sample video. Build options and notes on other environments are in [docs/BUILDING.md](docs/BUILDING.md); macOS and Windows support is on the roadmap.
 
 ## Command-line tools
 
-| Tool | Purpose | Key options |
-|------|---------|-------------|
-| `video2vec` | video -> `.vec` | `--in`, `--out`, `--win`, `--overlap`, `--whisper-model`, `--ocr-lang` (empty disables OCR), `--embedding-model`, `--frame-interval`, `--save-proof`, `--config` (YAML; flags override it) |
-| `load-to-llm` | `.vec` -> markdown / json / text | `--vec`, `--format`, `--out`, `--max-chars` |
-| `vec2index` | `.vec` -> index file | `--vec`, `--out`, `--model` (text encoder for words/OCR lines), `--dim`, `--space` (cosine, inner_product, l2) |
-| `ask` | one query against an index | `--db`, `--model`, `-q/--query`, `--topk`, `--merge-by-time`, `--expand-context` |
-| `qa` | interactive or single-question retrieval prompt | `--db`, `--model`, `--query`, `--topk`, `--interactive` |
+| Tool | Purpose |
+|------|---------|
+| `video2vec` | Video to `.vec`: transcript, OCR lines, frames and embeddings per window |
+| `load-to-llm` | `.vec` to Markdown, JSON or plain text for an LLM prompt |
+| `vec2index` | `.vec` to a vector index file |
+| `ask`, `qa` | Query an index once or interactively |
 
-All tools print usage with `--help`, exit with `2` on argument errors and `1` on runtime errors.
+Every tool prints its options with `--help`, exits with `2` on argument errors and `1` on runtime errors.
 
 ## Using it as a library
 
 ```cmake
+# After `cmake --install build --prefix <dir>`, configure your project with
+# -DCMAKE_PREFIX_PATH=<dir>.
 find_package(video2vec REQUIRED)
-target_link_libraries(your_target PRIVATE
-    video2vec::core video2vec::ffmpeg video2vec::windowing
-    video2vec::asr video2vec::ocr video2vec::embedding
-    video2vec::flatbuffers video2vec::index video2vec::query)
+target_link_libraries(your_target PRIVATE video2vec::core video2vec::ffmpeg)
 ```
 
-```cpp
-#include <video2vec/ffmpeg/demuxer.hpp>
-#include <video2vec/windowing/windowing.hpp>
-#include <video2vec/asr/whisper_backend.hpp>
+Every module is exported as its own target (`video2vec::asr`, `::ocr`, `::embedding`, `::index`, `::query` and others); CI's install test builds a consumer against `core` and `ffmpeg`. Backends sit behind interfaces (`IASRBackend`, `IOCRBackend`, `IEmbeddingBackend`, `IVectorStore`) and return `core::Result<T>`; check it before calling `value()`. A public pipeline API arrives in 0.3.0. See [docs/API.md](docs/API.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-video2vec::ffmpeg::Demuxer demuxer;
-if (demuxer.open("lecture.mp4") < 0) return 1;
+## Roadmap
 
-video2vec::windowing::WindowingConfig cfg{};      // 45 s windows, 5 s overlap
-auto windows = video2vec::windowing::generate_windows(demuxer.duration_ms(), cfg);
+| Release | Theme |
+|---------|-------|
+| 0.2.1 | License and community files, honest docs, enforced CI gates, pinned dependencies |
+| 0.3.0 | Pipeline as a library, lossless scene timeline, `.vec` v3, bounded memory, device model, model cache, evaluation harness |
+| 0.4.0 | Stable C ABI, plugin model, numerics and parity checks, CI on macOS, Windows and Linux ARM |
+| 0.5.0 | Voice-activity detection, PaddleOCR, crash-safe resume, batch mode |
+| 0.6.0 | Real text embeddings, CLIP/SigLIP image preprocessing, hybrid search, chapters |
+| 0.7.0 | MCP and REST server, Qdrant and Milvus, container images, compose and Helm |
+| 0.8.0 | Prebuilt binaries, vcpkg and Conan, multi-arch images, macOS Intel, OpenTelemetry, enterprise hardening |
+| 0.9.0 | Python package (CPU) |
+| 1.0.0 | API freeze; LangChain and LlamaIndex integrations |
+| 1.1 | GPU backends: CUDA (+TensorRT), Vulkan, Metal/CoreML |
+| 1.2 | WebGPU backend |
 
-video2vec::asr::WhisperBackend asr;
-if (auto r = asr.initialize("models/ggml-base.bin", "auto"); !r) return 1;
-auto result = asr.transcribe(pcm_16khz_mono, 16000);   // std::span<const float>
-if (result) {
-    for (const auto& seg : result.value().segments)
-        for (const auto& w : seg.words) { /* w.t_ms, w.dt_ms, w.text, w.confidence */ }
-}
-```
-
-Backends return `core::Result<T>`; check it before calling `value()`. The decoder classes used by the CLI (`src/ffmpeg/decoder_impl.hpp`) are internal for now; see the roadmap.
-
-## Installation
-
-### Prerequisites
-
-**Required**
-- C++20 compiler (GCC 13+ or Clang 17+), CMake 3.25+, pkg-config
-- FFmpeg 6+ development libraries
-- whisper.cpp, ONNX Runtime and Tesseract + Leptonica: `scripts/ci-setup-deps.sh` fetches and builds them into `deps/` (CMake stops with an error if they are missing)
-- spdlog, nlohmann_json, yaml-cpp, cxxopts, GoogleTest, google-benchmark: taken from the system or fetched with FetchContent
-
-**Optional**
-- libvips (PNG encoding), FAISS (vector search)
-- `ffmpeg` CLI and Python 3 with `onnx` to generate the test fixture and models
-
-### Fedora/RHEL
-
-```bash
-sudo dnf install -y cmake gcc-c++ ninja-build pkgconf-pkg-config ffmpeg-devel ffmpeg \
-    tesseract-devel leptonica-devel vips-devel json-devel gtest-devel google-benchmark-devel \
-    python3-pip git wget curl
-pip3 install onnx numpy protobuf
-scripts/ci-setup-deps.sh
-```
-
-### macOS
-
-```bash
-brew install cmake ninja pkg-config ffmpeg tesseract leptonica vips nlohmann-json googletest google-benchmark python3
-pip3 install onnx numpy protobuf
-scripts/ci-setup-deps.sh   # note: the ONNX Runtime download in the script targets Linux x64
-```
-
-### Windows
-
-Build inside WSL (Ubuntu) or a Linux container and follow the Ubuntu steps. The repository forces LF line endings through `.gitattributes` so the shell scripts work from a Windows checkout.
-
-### Install
-
-```bash
-cmake --install build --prefix /usr/local
-```
-
-See [docs/BUILDING.md](docs/BUILDING.md) for build options, sanitizer runs and details.
-
-## Project structure
-
-```
-video2vec/
-├── src/
-│   ├── core/           # Result, logging, config, thread pool, cancellation, metrics, memory
-│   ├── ffmpeg/         # Demuxer, decoders, resampling, RGB conversion, audio buffer
-│   ├── asr/            # whisper.cpp backend
-│   ├── ocr/            # Tesseract backend
-│   ├── embedding/      # ONNX Runtime backend, int8 quantization
-│   ├── vision/         # Frame scoring/selection, patch extraction, resize, PNG encoding
-│   ├── sync/           # PTS <-> ms conversion, drift measurement
-│   ├── windowing/      # Time windows and assignment
-│   ├── flatbuffers/    # The .vec container (hand-rolled binary format; schema.fbs is documentation)
-│   ├── index/          # Vector store (FAISS or linear scan), persistence
-│   ├── query/          # Query engine: merge by time, hybrid and time-aware search
-│   └── cli/            # video2vec, load-to-llm, vec2index, ask, qa
-├── include/video2vec/  # Public API headers
-├── tests/              # unit/, integration/, sdk_consumer/ (models/ and data/ are generated)
-├── scripts/            # ci-setup-deps.sh, smoke.sh, build.sh
-├── examples/           # basic_decode, basic_pipeline
-├── benchmarks/         # Google Benchmark micro-benchmarks
-└── docs/               # Architecture, building, API, performance, roadmap, changelog
-```
+Details and progress: [docs/ROADMAP.md](docs/ROADMAP.md) and the [milestones](https://github.com/omer-ulucan/video2vec/milestones).
 
 ## Testing
 
-`scripts/ci-setup-deps.sh` must have run once so the models and the generated sample video exist; without them the backend and smoke tests skip.
-
 ```bash
-ctest --test-dir build --output-on-failure            # everything
-ctest --test-dir build -R "core|ffmpeg|vision|packager|index|sync|windowing"   # unit suites
-ctest --test-dir build -R "pipeline|real_backends|e2e"                         # integration
-ctest --test-dir build -R cli_smoke                                            # CLI end to end
-ctest --test-dir build -R sdk_consumer                                         # install + find_package
+ctest --test-dir build --output-on-failure                                    # everything
+ctest --test-dir build -R "core|ffmpeg|vision|packager|index|sync|windowing"  # unit suites
+ctest --test-dir build -R "pipeline|real_backends|e2e"                        # integration
+ctest --test-dir build -R cli_smoke                                           # CLI end to end
 ```
 
-CI (GitHub Actions) builds with GCC and Clang and runs the suite under AddressSanitizer and UndefinedBehaviorSanitizer on every push and pull request.
-
-## Status and known limitations
-
-Version 0.2.0 is the result of a full re-audit of 0.1.0; every module received crash, memory-safety or correctness fixes, and the test suite was rebuilt so that it exercises the real backends (details in [AUDIT.md](AUDIT.md) and [docs/CHANGELOG.md](docs/CHANGELOG.md)). What is still open:
-
-- **Text embeddings:** there is no tokenizer yet. `encode_text` feeds a placeholder character-level vector to models with a float `[N,dim]` input and rejects token-id (int64) models. Real CLIP / sentence-transformer text search needs that tokenizer; image models get bilinear resizing to their input size but no CLIP mean/std normalization.
-- **Concurrency:** backends and the vector store are single-threaded objects; use one per thread.
-- **GPU:** decoding and inference run on the CPU.
-- **Formats:** `.vec` and index files written by 0.1.0 are rejected with a clear error; regenerate them.
+CI builds and tests with GCC and Clang, then runs the suite again under AddressSanitizer and UndefinedBehaviorSanitizer (all but the SDK consumer tests), on pushes to `main` and on pull requests. It also checks licensing (REUSE), documentation links, and YAML and workflow files (yamllint, actionlint).
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md), [Building](docs/BUILDING.md), [API reference](docs/API.md), [Performance](docs/PERFORMANCE.md)
-- [Roadmap](docs/ROADMAP.md), [Changelog](docs/CHANGELOG.md), [Contributing](docs/CONTRIBUTING.md), [Audit](AUDIT.md)
+[Architecture](docs/ARCHITECTURE.md) · [Building](docs/BUILDING.md) · [API](docs/API.md) · [Performance](docs/PERFORMANCE.md) · [Roadmap](docs/ROADMAP.md) · [Changelog](docs/CHANGELOG.md) · [Audit](AUDIT.md)
+
+## Contributing, security and support
+
+- [Contributing guide](docs/CONTRIBUTING.md): workflow, commit conventions and merge gates.
+- [Security policy](SECURITY.md): report vulnerabilities privately, never in a public issue.
+- [Support](SUPPORT.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
@@ -225,8 +168,8 @@ Licensed under either of the Apache License, Version 2.0 ([LICENSE-APACHE](LICEN
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in video2vec by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
 
-Every file declares its copyright and license: source, build and script files through an SPDX header, Markdown and JSON files through `REUSE.toml`. The repository follows the [REUSE](https://reuse.software/) specification, checked by `reuse lint` in CI.
+Every file declares its copyright and license: source, build and script files through an SPDX header, Markdown and JSON files through `REUSE.toml`. The Code of Conduct is the Contributor Covenant, under CC BY 4.0. The repository follows the [REUSE](https://reuse.software/) specification, checked by `reuse lint` in CI.
 
 ## Acknowledgments
 
-- [whisper.cpp](https://github.com/ggerganov/whisper.cpp), [ONNX Runtime](https://github.com/microsoft/onnxruntime), [Tesseract](https://github.com/tesseract-ocr/tesseract), [FFmpeg](https://ffmpeg.org/), [FAISS](https://github.com/facebookresearch/faiss)
+[whisper.cpp](https://github.com/ggml-org/whisper.cpp), [ONNX Runtime](https://github.com/microsoft/onnxruntime), [Tesseract](https://github.com/tesseract-ocr/tesseract), [FFmpeg](https://ffmpeg.org/), [FAISS](https://github.com/facebookresearch/faiss)
