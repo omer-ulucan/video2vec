@@ -10,9 +10,11 @@ All notable changes to this project will be documented in this file.
 - License files: `LICENSE-APACHE` and `LICENSE-MIT` (the project has always been declared "Apache-2.0 OR MIT" but shipped no license text), SPDX headers on every source, build and script file, `REUSE.toml` for Markdown and JSON, and `reuse lint` passing (REUSE specification 3.3, `LICENSES/`).
 - Community and governance files: `SECURITY.md` (private vulnerability reporting), `SUPPORT.md` (interim), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), GitHub issue forms (bug, feature, documentation/question, epic) and a pull request template listing the merge gates.
 - CI: `reuse` (license compliance), `links` (offline link and anchor check of every Markdown file in the repository root and `docs/`) and `lint` (yamllint over every YAML file, actionlint with shellcheck over the workflows) jobs.
+- `deps.lock`: every third-party download (ONNX Runtime, whisper.cpp, Tesseract, Leptonica, the whisper test model and the CMake FetchContent fallbacks) pinned by version, SHA-256 and URL and verified before use, by the setup script (`scripts/deps/lock.sh`) and by CMake (`URL_HASH`); a corrupted cached file stops the build. CI tools are verified too: Python tools install with `pip --require-hashes`, actionlint and lychee are checked against their release SHA-256, and the reuse image is pinned by digest. A `deps-lock` CI job re-checks every pin.
 
 ### Changed
 
+- Dependency sources: whisper.cpp comes from a tagged source archive instead of a shallow git clone, Leptonica from its release tarball, the whisper test model from a commit-pinned Hugging Face URL instead of `main`, and the FetchContent fallbacks from release archives instead of git tags. The CI dependency cache is keyed on `deps.lock`.
 - CONTRIBUTING: contributions are dual licensed Apache-2.0 OR MIT (previously stated as Apache-2.0 only).
 - README rewritten around where the project is going: maturity labels per component, the current limitations (frame cap, placeholder text encoder, overlap duplicates, LLM export cut, memory growth), a quick start that mirrors CI, and the release roadmap. `docs/ROADMAP.md` now follows the planned releases from 0.2.1 to 1.0.
 
