@@ -69,6 +69,8 @@ endif()
 # Offline (file:// URLs), so it runs in every build.
 add_test(NAME deps_fetch
     COMMAND bash ${CMAKE_SOURCE_DIR}/tests/deps/test_fetch_verified.sh)
+add_test(NAME deps_lock_cmake
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/tests/deps/test_deps_lock.cmake)
 
 # SDK consumer test: verify find_package(video2vec) works after install
 set(SDK_CONSUMER_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/sdk_consumer_install")
