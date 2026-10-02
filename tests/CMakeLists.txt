@@ -66,6 +66,8 @@ endif()
 # Offline (file:// URLs), so it runs in every build.
 add_test(NAME deps_fetch
     COMMAND bash ${CMAKE_SOURCE_DIR}/tests/deps/test_fetch_verified.sh)
+add_test(NAME deps_verify_lock
+    COMMAND bash ${CMAKE_SOURCE_DIR}/tests/deps/test_verify_lock.sh)
 add_test(NAME deps_lock_cmake
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/tests/deps/test_deps_lock.cmake)
 
