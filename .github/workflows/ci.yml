@@ -42,23 +42,19 @@ jobs:
         with:
           persist-credentials: false # nothing below pushes
       - name: Install lychee
-        # Pinned release, verified against the SHA-256 GitHub records for the
-        # asset (lychee-action downloads it without a check).
-        env:
-          LYCHEE_VERSION: 0.24.2
-          LYCHEE_SHA256: 1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a
+        # Pinned in deps.lock and checked by deps_unpack (lychee-action
+        # downloads it without a check).
         run: |
-          mkdir -p "$RUNNER_TEMP/lychee" && cd "$RUNNER_TEMP/lychee"
-          base="https://github.com/lycheeverse/lychee/releases/download/lychee-v${LYCHEE_VERSION}"
-          curl -fsSL --retry 3 -o lychee.tar.gz "${base}/lychee-x86_64-unknown-linux-gnu.tar.gz"
-          echo "${LYCHEE_SHA256}  lychee.tar.gz" | sha256sum -c -
-          tar -xzf lychee.tar.gz
-          # The binary sits at the top level or in a lychee-* folder, by release.
-          install -m 755 "$(find . -type f -name lychee | head -n 1)" "$RUNNER_TEMP/lychee-bin"
+          . scripts/deps/lock.sh
+          deps_unpack lychee "$RUNNER_TEMP/downloads" "$RUNNER_TEMP/lychee"
+          # Releases put the binary at the top level or in one lychee-* folder.
+          bin="$RUNNER_TEMP/lychee/lychee"
+          [[ -x "$bin" ]] || bin="$(echo "$RUNNER_TEMP"/lychee/lychee-*/lychee)"
+          test -x "$bin"
+          echo "LYCHEE=$bin" >> "$GITHUB_ENV"
       - name: Check Markdown links
         run: |
-          "$RUNNER_TEMP/lychee-bin" --offline --include-fragments --no-progress \
-            './*.md' 'docs/**/*.md'
+          "$LYCHEE" --offline --include-fragments --no-progress './*.md' 'docs/**/*.md'
 
   # YAML and workflow gate: yamllint checks every YAML file (workflows, issue
   # forms) against .yamllint.yaml; actionlint type-checks workflows, including
@@ -80,20 +76,13 @@ jobs:
         run: |
           "$RUNNER_TEMP/lint-venv/bin/yamllint" --strict --format github .
       - name: Install actionlint
-        # Pinned release, verified against the SHA-256 published with it.
-        env:
-          ACTIONLINT_VERSION: 1.7.12
-          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        # Pinned in deps.lock and checked by deps_unpack.
         run: |
-          cd "$RUNNER_TEMP"
-          base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
-          curl -fsSL --retry 3 -o actionlint.tar.gz \
-            "${base}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
-          tar -xzf actionlint.tar.gz actionlint
+          . scripts/deps/lock.sh
+          deps_unpack actionlint "$RUNNER_TEMP/downloads" "$RUNNER_TEMP/actionlint"
       - name: actionlint
         run: |
-          "$RUNNER_TEMP/actionlint" -color
+          "$RUNNER_TEMP/actionlint/actionlint" -color
 
   # Supply-chain gate: every deps.lock pin must still match what its URL
   # serves, including FetchContent fallbacks that the build jobs never fetch.
