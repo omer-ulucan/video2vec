@@ -80,6 +80,53 @@ else()
     message(STATUS "ok    no placeholder hashes in the repository lock")
 endif()
 
+# End to end: a project that declares a fallback through video2vec_locked_dep()
+# configures when the archive matches its pin and fails when it does not.
+file(MAKE_DIRECTORY "${work}/payload/pkg")
+file(WRITE "${work}/payload/pkg/CMakeLists.txt"
+    "cmake_minimum_required(VERSION 3.25)\nproject(pkg NONE)\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E tar czf "${work}/pkg.tar.gz" pkg
+    WORKING_DIRECTORY "${work}/payload")
+file(SHA256 "${work}/pkg.tar.gz" pkg_sha)
+file(WRITE "${work}/pinned.lock" "pkg 1.0 ${pkg_sha} file://${work}/pkg.tar.gz\n")
+file(WRITE "${work}/tampered.lock" "pkg 1.0 ${good_sha} file://${work}/pkg.tar.gz\n")
+file(MAKE_DIRECTORY "${work}/consumer")
+file(WRITE "${work}/consumer/CMakeLists.txt" "cmake_minimum_required(VERSION 3.25)
+project(consumer NONE)
+include(\"${module}\")
+include(FetchContent)
+video2vec_locked_dep(pkg _url _sha256)
+FetchContent_Declare(pkg URL \"\${_url}\" URL_HASH SHA256=\${_sha256})
+FetchContent_MakeAvailable(pkg)
+")
+
+# configure_case(<label> <lock> <expect-success> <expected-output-regex>)
+function(configure_case label lock expect_ok pattern)
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -S "${work}/consumer" -B "${work}/build-${label}"
+                -DVIDEO2VEC_DEPS_LOCK=${lock}
+        RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err)
+    set(ok FALSE)
+    if(expect_ok AND rc EQUAL 0)
+        set(ok TRUE)
+    elseif(NOT expect_ok AND NOT rc EQUAL 0)
+        set(ok TRUE)
+    endif()
+    if(ok AND NOT "${out}${err}" MATCHES "${pattern}")
+        set(ok FALSE)
+    endif()
+    if(ok)
+        message(STATUS "ok    ${label}")
+    else()
+        message(STATUS "FAIL  ${label} (exit ${rc})\n${out}${err}")
+        math(EXPR n "${failures} + 1")
+        set(failures ${n} PARENT_SCOPE)
+    endif()
+endfunction()
+
+configure_case(fetch-pinned "${work}/pinned.lock" TRUE "Configuring done")
+configure_case(fetch-tampered "${work}/tampered.lock" FALSE "([Mm]ismatch|does not match)")
+
 file(REMOVE_RECURSE "${work}")
 if(failures GREATER 0)
     message(FATAL_ERROR "${failures} check(s) failed")
