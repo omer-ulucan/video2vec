@@ -2,17 +2,24 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-# Every third-party file the build and CI download, pinned by URL and SHA-256.
-# Readers: scripts/deps/lock.sh (shell) and cmake/DepsLock.cmake (FetchContent);
-# nothing is downloaded without being checked against this file first.
+# Every file the build scripts, CMake and CI download from a URL, pinned by
+# SHA-256. Readers: scripts/deps/lock.sh (shell) and cmake/DepsLock.cmake
+# (FetchContent). Nothing listed here is used without being checked first.
+# Pinned elsewhere, in their own formats: Python packages in
+# scripts/deps/requirements-*.txt (pip --require-hashes) and the reuse
+# container image by digest in .github/workflows/ci.yml.
 #
 # Format: one entry per line, whitespace-separated:
 #     <name> <version> <sha256> <url>
+# Names are unique, URLs are HTTPS, and no line may contain a semicolon or a
+# square bracket (CMake would misread it). The version names the unpacked
+# directory where one exists, for example deps/tesseract-<version>.
 #
 # To change a pin, update version, URL and hash together in one commit. Hashes
 # come from the publisher where it publishes one (GitHub release asset digest,
-# Hugging Face LFS object id); otherwise from the first download, which the
-# deps-lock CI job re-checks for every entry on every run.
+# Hugging Face LFS object id), otherwise from the first download. The deps-lock
+# CI job downloads every entry on every run, which catches a changed upstream
+# file but is not an independent source.
 
 # Native libraries built or unpacked by scripts/ci-setup-deps.sh
 onnxruntime    1.18.0   fa4d11b3fa1b2bf1c3b2efa8f958634bc34edc95e351ac2a0408c6ad5c5504f0  https://github.com/microsoft/onnxruntime/releases/download/v1.18.0/onnxruntime-linux-x64-1.18.0.tgz
