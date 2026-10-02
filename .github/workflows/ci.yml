@@ -112,7 +112,9 @@ jobs:
             deps/leptonica-1.87.0
             tests/models
             tests/data
-          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/ci-setup-deps.sh') }}
+          key: >-
+            ${{ runner.os }}-deps-${{ hashFiles('deps.lock', 'scripts/ci-setup-deps.sh',
+            'scripts/deps/**') }}
       - name: Setup custom dependencies
         run: scripts/ci-setup-deps.sh
       - name: Configure
@@ -147,7 +149,9 @@ jobs:
             deps/leptonica-1.87.0
             tests/models
             tests/data
-          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/ci-setup-deps.sh') }}
+          key: >-
+            ${{ runner.os }}-deps-${{ hashFiles('deps.lock', 'scripts/ci-setup-deps.sh',
+            'scripts/deps/**') }}
       - name: Setup custom dependencies
         run: scripts/ci-setup-deps.sh
       - name: Configure
@@ -187,7 +191,9 @@ jobs:
             deps/leptonica-1.87.0
             tests/models
             tests/data
-          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/ci-setup-deps.sh') }}
+          key: >-
+            ${{ runner.os }}-deps-${{ hashFiles('deps.lock', 'scripts/ci-setup-deps.sh',
+            'scripts/deps/**') }}
       - name: Setup custom dependencies
         run: scripts/ci-setup-deps.sh
       - name: Configure ASan
