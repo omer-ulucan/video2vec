@@ -6,11 +6,8 @@ if(BUILD_BENCHMARKS)
     find_package(benchmark QUIET)
     if(NOT benchmark_FOUND)
         include(FetchContent)
-        FetchContent_Declare(
-            benchmark
-            GIT_REPOSITORY https://github.com/google/benchmark.git
-            GIT_TAG v1.8.3
-        )
+        video2vec_locked_dep(benchmark _url _sha256)
+        FetchContent_Declare(benchmark URL "${_url}" URL_HASH SHA256=${_sha256})
         FetchContent_MakeAvailable(benchmark)
     endif()
     add_executable(bench_core bench_core.cpp)

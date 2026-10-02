@@ -32,6 +32,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(GNUInstallDirs)
+# Download pins for the FetchContent fallbacks below (see deps.lock).
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/DepsLock.cmake)
 
 if(ENABLE_ASAN AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
@@ -67,11 +69,8 @@ if(NOT spdlog_FOUND)
     pkg_check_modules(SPDLOG spdlog)
     if(NOT SPDLOG_FOUND)
         include(FetchContent)
-        FetchContent_Declare(
-            spdlog
-            GIT_REPOSITORY https://github.com/gabime/spdlog.git
-            GIT_TAG v1.14.1
-        )
+        video2vec_locked_dep(spdlog _url _sha256)
+        FetchContent_Declare(spdlog URL "${_url}" URL_HASH SHA256=${_sha256})
         FetchContent_MakeAvailable(spdlog)
     endif()
 endif()
@@ -81,11 +80,8 @@ if(NOT nlohmann_json_FOUND)
     pkg_check_modules(NLOHMANN_JSON nlohmann_json)
     if(NOT NLOHMANN_JSON_FOUND)
         include(FetchContent)
-        FetchContent_Declare(
-            nlohmann_json
-            GIT_REPOSITORY https://github.com/nlohmann/json.git
-            GIT_TAG v3.11.3
-        )
+        video2vec_locked_dep(nlohmann_json _url _sha256)
+        FetchContent_Declare(nlohmann_json URL "${_url}" URL_HASH SHA256=${_sha256})
         FetchContent_MakeAvailable(nlohmann_json)
     endif()
 endif()
@@ -95,11 +91,8 @@ if(NOT yaml-cpp_FOUND)
     pkg_check_modules(YAML_CPP yaml-cpp)
     if(NOT YAML_CPP_FOUND)
         include(FetchContent)
-        FetchContent_Declare(
-            yaml-cpp
-            GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-            GIT_TAG 0.8.0
-        )
+        video2vec_locked_dep(yaml-cpp _url _sha256)
+        FetchContent_Declare(yaml-cpp URL "${_url}" URL_HASH SHA256=${_sha256})
         FetchContent_MakeAvailable(yaml-cpp)
     endif()
 endif()
@@ -107,11 +100,8 @@ endif()
 find_package(cxxopts QUIET)
 if(NOT cxxopts_FOUND)
     include(FetchContent)
-    FetchContent_Declare(
-        cxxopts
-        GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-        GIT_TAG v3.2.0
-    )
+    video2vec_locked_dep(cxxopts _url _sha256)
+    FetchContent_Declare(cxxopts URL "${_url}" URL_HASH SHA256=${_sha256})
     FetchContent_MakeAvailable(cxxopts)
 endif()
 

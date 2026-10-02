@@ -9,11 +9,8 @@ if(NOT GTest_FOUND)
 endif()
 if(NOT GTest_FOUND AND NOT googletest_FOUND)
     include(FetchContent)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.14.0
-    )
+    video2vec_locked_dep(googletest _url _sha256)
+    FetchContent_Declare(googletest URL "${_url}" URL_HASH SHA256=${_sha256})
     FetchContent_MakeAvailable(googletest)
     if(NOT TARGET GTest::gtest_main)
         add_library(GTest::gtest_main ALIAS gtest_main)
