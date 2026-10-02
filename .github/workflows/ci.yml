@@ -107,7 +107,7 @@ jobs:
           sudo apt-get install -y cmake build-essential libavcodec-dev libavformat-dev \
             libavutil-dev libswscale-dev libswresample-dev \
             nlohmann-json3-dev libvips-dev libtesseract-dev tesseract-ocr-eng \
-            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git wget ffmpeg
+            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git ffmpeg
       - name: Install Python dependencies
         run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
       - name: Cache custom dependencies
@@ -153,7 +153,7 @@ jobs:
           sudo apt-get install -y cmake clang libavcodec-dev libavformat-dev \
             libavutil-dev libswscale-dev libswresample-dev \
             nlohmann-json3-dev libvips-dev libtesseract-dev tesseract-ocr-eng \
-            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git wget ffmpeg
+            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git ffmpeg
       - name: Install Python dependencies
         run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
       - name: Cache custom dependencies
@@ -191,7 +191,7 @@ jobs:
           sudo apt-get install -y cmake build-essential libavcodec-dev libavformat-dev \
             libavutil-dev libswscale-dev libswresample-dev \
             nlohmann-json3-dev libtesseract-dev tesseract-ocr-eng libleptonica-dev \
-            libgtest-dev python3-pip git wget ffmpeg
+            libgtest-dev python3-pip git ffmpeg
       - name: Install Python dependencies
         run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
       - name: Cache custom dependencies

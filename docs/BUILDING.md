@@ -25,7 +25,7 @@ with an error when any of them is missing.
 ## Quick start (Ubuntu 24.04, x86_64)
 
 ```bash
-sudo apt-get install -y cmake build-essential ninja-build pkg-config git wget curl \
+sudo apt-get install -y cmake build-essential ninja-build pkg-config git curl \
     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg \
     libtesseract-dev tesseract-ocr-eng libleptonica-dev libvips-dev \
     nlohmann-json3-dev libgtest-dev libbenchmark-dev python3-venv
