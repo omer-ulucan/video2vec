@@ -30,3 +30,7 @@ yaml-cpp       0.8.0    fbe74bbdcee21d656715688706da3c8becfd946d92cd44705cc6098b
 cxxopts        3.2.0    9f43fa972532e5df6c5fd5ad0f5bac606cdec541ccaf1732463d8070bbb7f03b  https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.2.0.tar.gz
 googletest     1.14.0   8ad598c73ad796e0d8280b082cebd82a630d73e73cd3c70057938a6501bba5d7  https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
 benchmark      1.8.3    6bc180a57d23d4d9515519f92b0c83d61b05b5bab188961f36ac7b06b0d9e9ce  https://github.com/google/benchmark/archive/refs/tags/v1.8.3.tar.gz
+
+# CI tools (release binaries, installed by .github/workflows/ci.yml)
+actionlint     1.7.12   8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+lychee         0.24.2   1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz
