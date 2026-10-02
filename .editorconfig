@@ -31,3 +31,7 @@ indent_size = 4
 # License texts are kept verbatim, so their line lengths are not reflowed.
 [{LICENSE-*,LICENSES/**}]
 max_line_length = off
+
+# deps.lock lines hold a full SHA-256 and URL each.
+[deps.lock]
+max_line_length = off
