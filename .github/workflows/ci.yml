@@ -40,11 +40,25 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false # third-party action below needs no token
+          persist-credentials: false # nothing below pushes
+      - name: Install lychee
+        # Pinned release, verified against the SHA-256 GitHub records for the
+        # asset (lychee-action downloads it without a check).
+        env:
+          LYCHEE_VERSION: 0.24.2
+          LYCHEE_SHA256: 1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a
+        run: |
+          mkdir -p "$RUNNER_TEMP/lychee" && cd "$RUNNER_TEMP/lychee"
+          base="https://github.com/lycheeverse/lychee/releases/download/lychee-v${LYCHEE_VERSION}"
+          curl -fsSL --retry 3 -o lychee.tar.gz "${base}/lychee-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${LYCHEE_SHA256}  lychee.tar.gz" | sha256sum -c -
+          tar -xzf lychee.tar.gz
+          # The binary sits at the top level or in a lychee-* folder, by release.
+          install -m 755 "$(find . -type f -name lychee | head -n 1)" "$RUNNER_TEMP/lychee-bin"
       - name: Check Markdown links
-        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
-        with:
-          args: --offline --include-fragments --no-progress './*.md' 'docs/**/*.md'
+        run: |
+          "$RUNNER_TEMP/lychee-bin" --offline --include-fragments --no-progress \
+            './*.md' 'docs/**/*.md'
 
   # YAML and workflow gate: yamllint checks every YAML file (workflows, issue
   # forms) against .yamllint.yaml; actionlint type-checks workflows, including
