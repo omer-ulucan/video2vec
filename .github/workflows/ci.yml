@@ -109,7 +109,7 @@ jobs:
         run: scripts/deps/verify-lock.sh
 
   build-linux-gcc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # the hashed Python wheels are for its CPython 3.12
     steps:
       - uses: actions/checkout@v4
       - name: Install system dependencies
@@ -146,7 +146,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   build-linux-clang:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # the hashed Python wheels are for its CPython 3.12
     steps:
       - uses: actions/checkout@v4
       - name: Install system dependencies
@@ -185,7 +185,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   sanitize:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # the hashed Python wheels are for its CPython 3.12
     env:
       ASAN_OPTIONS: detect_leaks=1
       LSAN_OPTIONS: suppressions=${{ github.workspace }}/scripts/asan.supp
