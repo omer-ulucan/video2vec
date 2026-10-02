@@ -1,33 +1,51 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 
 # SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
 #
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-# Helpers for pinned dependency downloads; source this file, it only defines
-# functions. Every third-party download in the build scripts and CI goes
-# through deps_fetch, which checks the file against the SHA-256 pinned in
-# deps.lock before anything uses it.
+# Helpers for pinned dependency downloads. Source this file (it only defines
+# functions). Every file the build scripts and CI download from a URL goes
+# through deps_fetch, which checks it against the SHA-256 pinned in deps.lock
+# before anything uses it.
 #
 # deps.lock format: one entry per line, whitespace-separated,
 #     <name> <version> <sha256> <url>
-# Blank lines and lines starting with '#' are ignored. VIDEO2VEC_DEPS_LOCK
-# points to another lock file (the tests use this).
+# Blank lines and lines starting with '#' are ignored. Names are unique.
+# VIDEO2VEC_DEPS_LOCK points to another lock file (the tests use this).
 
 _deps_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Name of the file in an unpacked tree that records the archive hash it came
+# from.
+_DEPS_STAMP=".deps-lock-sha256"
 
 # Prints the path of the lock file in use.
 deps_lock_file() {
     printf '%s\n' "${VIDEO2VEC_DEPS_LOCK:-${_deps_root}/deps.lock}"
 }
 
-# deps_sha256 <file>: prints the file's SHA-256 in lowercase hex.
+# deps_sha256 <file>: prints the file's SHA-256 in lowercase hex. The file is
+# read from stdin, because sha256sum escapes some file names in its output.
 deps_sha256() {
     if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$1" | cut -d' ' -f1
+        sha256sum < "$1" | cut -d' ' -f1
     else
-        shasum -a 256 "$1" | cut -d' ' -f1 # macOS ships shasum, not sha256sum
+        shasum -a 256 < "$1" | cut -d' ' -f1 # macOS ships shasum, not sha256sum
     fi
+}
+
+# deps_lock_names: prints the name of every entry, one per line, in file order
+# (duplicates included, so callers can detect them). Returns 1 if the lock file
+# does not exist. awk handles a last line without a trailing newline.
+deps_lock_names() {
+    local lock
+    lock="$(deps_lock_file)"
+    if [[ ! -f "${lock}" ]]; then
+        echo "deps: lock file not found: ${lock}" >&2
+        return 1
+    fi
+    awk 'NF > 0 && $1 !~ /^#/ { print $1 }' "${lock}"
 }
 
 # deps_lock_field <name> <version|sha256|url>: prints one field of an entry.
@@ -66,10 +84,12 @@ deps_lock_field() {
 # deps_fetch <name> <dest>: makes <dest> the pinned file for <name>.
 # An existing <dest> is verified, never trusted and never silently replaced:
 # a mismatch fails and leaves the file in place for inspection. A new download
-# goes to <dest>.part and is moved into place only after its hash matches.
-# Only HTTPS (and file:// for tests) is allowed, also across redirects.
+# goes to a unique temporary file next to <dest> and is moved into place only
+# after its hash matches. curl accepts HTTPS, and file:// for the tests; the
+# repository lock holds HTTPS URLs only (checked by tests/deps). Redirects must
+# stay on HTTPS.
 deps_fetch() {
-    local name="$1" dest="$2" url want got
+    local name="$1" dest="$2" url want got tmp
     url="$(deps_lock_field "${name}" url)" || return 1
     want="$(deps_lock_field "${name}" sha256)" || return 1
     if [[ ! "${want}" =~ ^[0-9a-f]{64}$ ]]; then
@@ -88,24 +108,23 @@ deps_fetch() {
     fi
 
     mkdir -p "$(dirname "${dest}")"
+    # A unique name, so two runs fetching the same file cannot truncate each other.
+    tmp="$(mktemp "${dest}.XXXXXX")" || return 1
     if ! curl -fsSL --retry 3 --proto '=https,file' --proto-redir '=https' \
-        -o "${dest}.part" "${url}"; then
-        rm -f "${dest}.part"
+        -o "${tmp}" "${url}"; then
+        rm -f "${tmp}"
         echo "deps: download failed for ${name}: ${url}" >&2
         return 1
     fi
-    got="$(deps_sha256 "${dest}.part")"
+    got="$(deps_sha256 "${tmp}")"
     if [[ "${got}" != "${want}" ]]; then
-        rm -f "${dest}.part"
+        rm -f "${tmp}"
         echo "deps: checksum mismatch for ${name} from ${url}: expected ${want}, got ${got}" >&2
         return 1
     fi
-    mv "${dest}.part" "${dest}"
+    chmod 644 "${tmp}"
+    mv "${tmp}" "${dest}"
 }
-
-# Name of the file in an unpacked tree that records the archive hash it came
-# from.
-_DEPS_STAMP=".deps-lock-sha256"
 
 # deps_is_current <name> <dir>: succeeds if <dir> was unpacked from the archive
 # currently pinned for <name>. A missing tree, a tree without a record (from
@@ -116,17 +135,20 @@ deps_is_current() {
     [[ -f "${dir}/${_DEPS_STAMP}" && "$(< "${dir}/${_DEPS_STAMP}")" == "${want}" ]]
 }
 
-# deps_unpack <name> <archive> <dir> [tar options...]: replaces <dir> with the
-# contents of the pinned archive for <name>, fetched and verified into <archive>
-# by deps_fetch, and records the pin in <dir>. Extra arguments go to tar (for
-# example --strip-components=1). Nothing is removed or unpacked unless the
-# archive matches its pin.
+# deps_unpack <name> <downloads-dir> <dir> [tar options...]: replaces <dir>
+# with the contents of the archive pinned for <name> and records the pin in
+# <dir>. The archive is fetched and verified into <downloads-dir>, named after
+# its hash, so a changed pin never collides with an older download. Extra
+# arguments go to tar (for example --strip-components=1); tar detects the
+# compression. Nothing is removed or unpacked unless the archive matches.
 deps_unpack() {
-    local name="$1" archive="$2" dir="$3"
+    local name="$1" downloads="$2" dir="$3" sha archive
     shift 3
+    sha="$(deps_lock_field "${name}" sha256)" || return 1
+    archive="${downloads}/${name}-${sha}"
     deps_fetch "${name}" "${archive}" || return 1
     rm -rf "${dir}"
     mkdir -p "${dir}"
     tar -xf "${archive}" -C "${dir}" "$@" || return 1
-    deps_lock_field "${name}" sha256 > "${dir}/${_DEPS_STAMP}"
+    printf '%s\n' "${sha}" > "${dir}/${_DEPS_STAMP}"
 }
