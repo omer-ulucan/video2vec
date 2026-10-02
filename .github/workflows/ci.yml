@@ -20,9 +20,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false # third-party action below needs no token
+          persist-credentials: false # nothing below pushes
       - name: REUSE compliance
-        uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+        # The reuse image pinned by digest (tag 6.2.0): reuse-action builds from
+        # the floating tag fsfe/reuse:6, which can change under the same pin.
+        env:
+          REUSE_DIGEST: sha256:85462a75c0f8efda09ddd190b92816b70e7662577c8427429e11e1b9f25a992e
+        run: |
+          docker run --rm --volume "$PWD:/data" --workdir /data --entrypoint sh \
+            "fsfe/reuse:6.2.0@${REUSE_DIGEST}" \
+            -c 'git config --global --add safe.directory /data && reuse lint'
 
   # Documentation gate: relative links and in-page anchors in Markdown must
   # resolve. Offline mode keeps the job deterministic (no network flakiness).
