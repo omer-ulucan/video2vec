@@ -50,8 +50,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false # nothing below pushes
+      - name: Install yamllint
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lint-venv"
+          "$RUNNER_TEMP/lint-venv/bin/pip" install --require-hashes \
+            -r scripts/deps/requirements-lint.txt
       - name: yamllint
-        run: pipx run --spec yamllint==1.38.0 yamllint --strict --format github .
+        run: |
+          "$RUNNER_TEMP/lint-venv/bin/yamllint" --strict --format github .
       - name: Install actionlint
         # Pinned release, verified against the SHA-256 published with it.
         env:
