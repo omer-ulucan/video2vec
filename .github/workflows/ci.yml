@@ -4,7 +4,8 @@
 
 # Continuous integration for every pull request and every push to main, and a
 # nightly run on main: licensing, documentation links, YAML and workflow lint,
-# the deps.lock pins, and the build and test matrix.
+# the deps.lock pins, and the build and test matrix. ci-ok at the end is the
+# single check that branch protection requires.
 name: CI
 
 on:
@@ -248,3 +249,20 @@ jobs:
       - name: Compiler cache statistics
         run: ccache --show-stats
 
+  # The single required check: green only if every job above succeeded.
+  # Branch protection (#31) requires this job instead of each job by name,
+  # so adding or renaming a job never needs a settings change.
+  ci-ok:
+    # always(): it must also run, and fail, when a job failed or the run was
+    # cancelled. A skipped required check would count as passing.
+    if: always()
+    needs: [reuse, links, lint, deps-lock, build]
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: Every job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          jq -e 'all(.[]; .result == "success")' <<< "$NEEDS" > /dev/null
