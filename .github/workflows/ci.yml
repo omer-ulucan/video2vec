@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-# Continuous integration for every pull request and every push to main:
-# licensing, documentation links, YAML and workflow lint, the deps.lock pins,
-# and the build and test matrix.
+# Continuous integration for every pull request and every push to main, and a
+# nightly run on main: licensing, documentation links, YAML and workflow lint,
+# the deps.lock pins, and the build and test matrix.
 name: CI
 
 on:
@@ -12,6 +12,12 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # Nightly: the same jobs, plus the ThreadSanitizer tests too slow for every
+  # pull request (see the tsan leg). workflow_dispatch starts the same full
+  # run by hand, on any branch.
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
 
 # No token permissions unless a job asks for them.
 permissions: {}
@@ -113,7 +119,7 @@ jobs:
   build:
     name: build (${{ matrix.name }})
     runs-on: ubuntu-24.04 # the hashed Python wheels are for its CPython 3.12
-    timeout-minutes: 90
+    timeout-minutes: 120 # the nightly TSan leg runs about an hour
     permissions:
       contents: read
     strategy:
@@ -147,9 +153,10 @@ jobs:
             sanitize: thread
             deps-dir: deps/tsan
             cmake-args: -DCMAKE_BUILD_TYPE=Debug -DENABLE_TSAN=ON -DBUILD_BENCHMARKS=OFF
-            # Whisper inference under TSan takes over 30 minutes, so this leg
-            # skips those three tests.
+            # Whisper inference under TSan takes over 30 minutes, so pull
+            # requests skip those three tests; the nightly run includes them.
             ctest-args: -E ^(sdk_consumer_.*|real_backends|e2e|cli_smoke)$
+            ctest-args-nightly: -E ^sdk_consumer_
           - name: faiss
             cc: gcc
             cxx: g++
@@ -219,7 +226,9 @@ jobs:
           cmake --build build --parallel "$(nproc)"
       - name: Test
         env:
-          CTEST_ARGS: ${{ matrix.ctest-args }}
+          CTEST_ARGS: >-
+            ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+            && matrix.ctest-args-nightly || matrix.ctest-args }}
         # CTEST_ARGS is a word list (options and a regex without spaces), so it
         # is split on purpose; set -f keeps the regex from being globbed.
         run: |
