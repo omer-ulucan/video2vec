@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# ThreadSanitizer suppressions for the CI tsan build (TSAN_OPTIONS). Only
+# prebuilt libraries that cannot be instrumented are listed: TSan does not see
+# the synchronization inside them, so the memory they hand between their own
+# threads looks racy. called_from_lib ignores only the memory operations those
+# libraries perform; accesses made by video2vec code are still checked against
+# each other and against all instrumented code.
+# Code we compile (video2vec, whisper.cpp/ggml) is instrumented instead.
+
+# ONNX Runtime 1.18 prebuilt: its thread pool allocates on one thread and frees
+# on another.
+called_from_lib:libonnxruntime.so
+
+# libvips and the libraries its worker threads run (GLib, libspng, zlib):
+# libvips synchronizes through GLib's futex-based locks. The zlib and GLib
+# entries are broader than libvips: they ignore those libraries' own memory
+# operations for every caller (FFmpeg uses zlib too). Remove all four when
+# libvips is dropped (#46).
+called_from_lib:libvips.so
+called_from_lib:libglib-2.0.so
+called_from_lib:libspng.so
+called_from_lib:libz.so

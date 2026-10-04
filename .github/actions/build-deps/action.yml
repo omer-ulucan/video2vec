@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Composite action: everything a build job needs before CMake runs. It installs
+# the Ubuntu packages, ccache and the hash-pinned Python test-model tools,
+# restores the dependency cache and runs scripts/ci-setup-deps.sh. The build
+# matrix in ci.yml uses it so that every leg is set up the same way.
+name: Build dependencies
+description: Install the packages and pinned dependencies a video2vec build needs.
+inputs:
+  extra-packages:
+    description: Additional Ubuntu packages, space-separated (for example a compiler).
+    required: false
+    default: ""
+  faiss:
+    description: Also build FAISS from its deps.lock pin ("true" or "false").
+    required: false
+    default: "false"
+  sanitize:
+    description: >-
+      Build whisper.cpp with this sanitizer ("thread" or empty), see
+      VIDEO2VEC_DEPS_SANITIZE in scripts/ci-setup-deps.sh.
+    required: false
+    default: ""
+  deps-dir:
+    description: >-
+      Dependency directory relative to the workspace; give CMake the same
+      path as VIDEO2VEC_LOCAL_DEPS_DIR when it is not the default.
+    required: false
+    default: deps
+runs:
+  using: composite
+  steps:
+    - name: Install system packages
+      shell: bash
+      env:
+        EXTRA_PACKAGES: ${{ inputs.extra-packages }}
+      run: |
+        sudo apt-get update
+        # EXTRA_PACKAGES is a word list, so it is left unquoted on purpose.
+        # shellcheck disable=SC2086
+        sudo apt-get install -y cmake build-essential ccache git ffmpeg python3-pip \
+          libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+          nlohmann-json3-dev libvips-dev libtesseract-dev tesseract-ocr-eng \
+          libleptonica-dev libgtest-dev libbenchmark-dev $EXTRA_PACKAGES
+    - name: Install the Python test-model tools
+      shell: bash
+      run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
+    - name: Restore the dependency cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ inputs.deps-dir }}
+          !${{ inputs.deps-dir }}/downloads
+          tests/models
+          tests/data
+        # Each flavor (FAISS, sanitizer) builds a different tree, so each gets
+        # its own entry.
+        key: >-
+          ${{ runner.os }}-deps-faiss-${{ inputs.faiss }}-sanitize-${{ inputs.sanitize }}-${{
+          hashFiles('deps.lock', 'scripts/ci-setup-deps.sh', 'scripts/deps/**') }}
+    - name: Set up dependencies
+      shell: bash
+      env:
+        VIDEO2VEC_WITH_FAISS: ${{ inputs.faiss == 'true' && '1' || '0' }}
+        VIDEO2VEC_DEPS_SANITIZE: ${{ inputs.sanitize }}
+        VIDEO2VEC_DEPS_DIR: ${{ github.workspace }}/${{ inputs.deps-dir }}
+      run: scripts/ci-setup-deps.sh

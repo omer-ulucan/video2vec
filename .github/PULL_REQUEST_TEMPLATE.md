@@ -16,7 +16,7 @@ Closes #
 
 ## Merge gates
 
-- [ ] Every CI job is green. Depending on the release, these cover build and tests (GCC, Clang), sanitizers (ASan, UBSan, TSan), formatting and lint, REUSE and license policy, docs and link checks, the ABI check, the performance gate and eval smoke.
+- [ ] `ci-ok` is green. It passes only when every CI job passed; depending on the release, these cover build and tests (GCC, Clang, warnings as errors), sanitizers (ASan, UBSan, TSan), FAISS, formatting and lint, REUSE and license policy, dependency pins, docs and link checks, the ABI check, the performance gate and eval smoke.
 - [ ] Tests added or updated: unit, integration, property/fuzz for parsers, fault injection for checkpointing, as relevant.
 - [ ] Public API documented (purpose, parameters, errors, thread-safety, ownership); every new source, CMake file, script and workflow opens with a comment on its role; comments explain the *why*.
 - [ ] New public capability exposed additively in the C API (from v0.4.0) and in Python (from v0.9.0), or not applicable.

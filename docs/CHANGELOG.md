@@ -11,12 +11,18 @@ All notable changes to this project will be documented in this file.
 - Community and governance files: `SECURITY.md` (private vulnerability reporting), `SUPPORT.md` (interim), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), GitHub issue forms (bug, feature, documentation/question, epic) and a pull request template listing the merge gates.
 - CI: `reuse` (license compliance), `links` (offline link and anchor check of every Markdown file in the repository root and `docs/`) and `lint` (yamllint over every YAML file, actionlint with shellcheck over the workflows) jobs.
 - `deps.lock`: every third-party download (ONNX Runtime, whisper.cpp, Tesseract, Leptonica, the whisper test model and the CMake FetchContent fallbacks) pinned by version, SHA-256 and URL and verified before use, by the setup script (`scripts/deps/lock.sh`) and by CMake (`URL_HASH`). A corrupted download or cached model stops the build, and an unpacked tree that does not match its pin is replaced. CI tools are covered too: actionlint and lychee through `deps.lock`, Python tools through `pip --require-hashes`, the reuse image by digest. A `deps-lock` CI job re-checks every pin.
+- CI: ThreadSanitizer and FAISS builds (FAISS v1.15.1 pinned in `deps.lock` and built by `scripts/ci-setup-deps.sh` with `VIDEO2VEC_WITH_FAISS=1`), and a `ci-ok` job that passes only when every other job passed. The TSan build instruments whisper.cpp too (`VIDEO2VEC_DEPS_SANITIZE=thread`, without OpenMP); a nightly run adds the whisper-inference tests that are too slow under TSan for every pull request. `scripts/tsan.supp` covers only prebuilt libraries that cannot be instrumented.
 
 ### Changed
 
 - Dependency sources: whisper.cpp comes from a tagged source archive instead of a shallow git clone, Leptonica from its release tarball, the whisper test model from a commit-pinned Hugging Face URL instead of `main`, and the FetchContent fallbacks from release archives instead of git tags. The CI dependency cache is keyed on `deps.lock`.
 - CONTRIBUTING: contributions are dual licensed Apache-2.0 OR MIT (previously stated as Apache-2.0 only).
 - README rewritten around where the project is going: maturity labels per component, the current limitations (frame cap, placeholder text encoder, overlap duplicates, LLM export cut, memory growth), a quick start that mirrors CI, and the release roadmap. `docs/ROADMAP.md` now follows the planned releases from 0.2.1 to 1.0.
+- CI: one build matrix (GCC, Clang, ASan + UBSan, TSan, FAISS) sharing a composite setup action; every leg treats warnings as errors and uses ccache; actions are pinned by commit; token permissions are denied by default; a new push to a pull request cancels its older runs. UndefinedBehaviorSanitizer findings now fail the test (`-fno-sanitize-recover=all`) instead of only printing a report.
+
+### Fixed
+
+- The FAISS build of the index compiled with an unused-function warning, which fails under warnings-as-errors.
 
 ## [0.2.0] - 2026-09-17
 

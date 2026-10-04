@@ -28,7 +28,7 @@ What exists in the current release (0.2.x), how mature it is, and when the rest 
 | Visual embeddings | Beta | ONNX image-model embeddings of patches cut from the selected frames | Model-specific preprocessing (CLIP/SigLIP) and a paired text encoder (0.6.0) |
 | Output container | Beta | Versioned, bounds-checked `.vec` file | Streamable `.vec` v3 with checksums and per-chunk records (0.3.0) |
 | LLM export | Beta | `load-to-llm`: Markdown, JSON or plain text per window | Windowed export that marks every cut (0.3.0) |
-| Search | Beta (vector search only) | Vector index and query CLIs: exact scan, or FAISS when found at build time (not yet tested in CI, see [#41](https://github.com/omer-ulucan/video2vec/issues/41)); text queries need a float-input model, not a real text encoder | Real text embeddings and BM25 + vector hybrid search (0.6.0) |
+| Search | Beta (vector search only) | Vector index and query CLIs: exact scan, or FAISS when found at build time (built and tested in CI; filtered searches can return fewer than `top_k` results, see [#41](https://github.com/omer-ulucan/video2vec/issues/41)); text queries need a float-input model, not a real text encoder | Real text embeddings and BM25 + vector hybrid search (0.6.0) |
 | C++ SDK | Beta | CMake package with one library per module; the pipeline itself lives in the `video2vec` CLI | One SDK library with a public pipeline API (0.3.0) |
 | Devices | Beta (CPU only) | CPU only, no device selection | Device model with per-stage selection (0.3.0); plugin model (0.4.0); GPU plugins: CUDA (+TensorRT), Vulkan, Metal/CoreML (1.1), WebGPU (1.2) |
 | C ABI | Planned | — | Stable, append-only C ABI (0.4.0) |
@@ -61,7 +61,7 @@ The `video2vec` CLI runs the whole pipeline in one process:
 
 ## Quick start (Ubuntu 24.04)
 
-These are the CI build steps with two differences: pip runs in a virtual environment (stock Ubuntu 24.04 refuses system-wide pip installs; CI runners allow them), and `pkg-config` and `curl` are listed because runners have them preinstalled.
+These are the steps of the CI `gcc` build with three differences: pip runs in a virtual environment (stock Ubuntu 24.04 refuses system-wide pip installs; CI runners allow them), `pkg-config` and `curl` are listed because runners have them preinstalled, and CI also passes `-DWARNINGS_AS_ERRORS=ON` and compiles through ccache.
 
 ```bash
 git clone https://github.com/omer-ulucan/video2vec.git
@@ -150,7 +150,7 @@ ctest --test-dir build -R "pipeline|real_backends|e2e"                        # 
 ctest --test-dir build -R cli_smoke                                           # CLI end to end
 ```
 
-CI builds and tests with GCC and Clang, then runs the suite again under AddressSanitizer and UndefinedBehaviorSanitizer (all but the SDK consumer tests), on pushes to `main` and on pull requests. It also checks licensing (REUSE), documentation links, and YAML and workflow files (yamllint, actionlint).
+CI runs on pushes to `main`, on pull requests and nightly. It builds with GCC and Clang with warnings as errors and runs every test, then runs the suite again under AddressSanitizer with UndefinedBehaviorSanitizer and under ThreadSanitizer (all but the SDK consumer tests; whisper.cpp is instrumented too, and its slow inference tests run under TSan only in the nightly run), and once more with FAISS built from its pinned source. It also checks licensing (REUSE), documentation links, YAML and workflow files (yamllint, actionlint), and every pinned download. A single `ci-ok` check summarizes all jobs.
 
 ## Documentation
 

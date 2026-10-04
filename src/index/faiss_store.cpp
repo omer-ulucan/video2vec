@@ -50,8 +50,11 @@ namespace {
         for (float& x : v) x *= inv;
     }
 
+#if !defined(HAS_FAISS)
     // Similarity in "higher is better" form for every metric, so the FAISS
-    // and fallback paths rank identically.
+    // and fallback paths rank identically. Only the exact-scan fallback calls
+    // it; the FAISS path converts the index's distances the same way inline,
+    // so a FAISS build would otherwise warn that it is unused.
     float similarity(Metric metric, std::span<const float> q, std::span<const float> r) {
         double acc = 0.0;
         if (metric == Metric::L2) {
@@ -64,6 +67,7 @@ namespace {
         for (size_t i = 0; i < q.size(); ++i) acc += static_cast<double>(q[i]) * r[i];
         return static_cast<float>(acc);
     }
+#endif
 
     // ------------------------------------------------------------ binary I/O
     template <typename T>
