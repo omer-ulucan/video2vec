@@ -150,7 +150,7 @@ ctest --test-dir build -R "pipeline|real_backends|e2e"                        # 
 ctest --test-dir build -R cli_smoke                                           # CLI end to end
 ```
 
-CI builds and tests with GCC and Clang, then runs the suite again under AddressSanitizer and UndefinedBehaviorSanitizer (all but the SDK consumer tests), on pushes to `main` and on pull requests. It also checks licensing (REUSE), documentation links, and YAML and workflow files (yamllint, actionlint).
+CI runs on pushes to `main`, on pull requests and nightly. It builds with GCC and Clang with warnings as errors and runs every test, then runs the suite again under AddressSanitizer with UndefinedBehaviorSanitizer and under ThreadSanitizer (all but the SDK consumer tests; whisper.cpp is instrumented too, and its slow inference tests run under TSan only in the nightly run), and once more with FAISS built from its pinned source. It also checks licensing (REUSE), documentation links, YAML and workflow files (yamllint, actionlint), and every pinned download. A single `ci-ok` check summarizes all jobs.
 
 ## Documentation
 
