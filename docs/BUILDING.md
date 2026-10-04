@@ -69,10 +69,12 @@ Not covered: Ubuntu packages come from apt, which checks their signatures but do
 | BUILD_BENCHMARKS | ON | Build benchmarks |
 | BUILD_CLI | ON | Build CLI tools |
 | ENABLE_ASAN | OFF | AddressSanitizer |
-| ENABLE_UBSAN | OFF | UndefinedBehaviorSanitizer |
+| ENABLE_UBSAN | OFF | UndefinedBehaviorSanitizer; the first finding aborts the program (`-fno-sanitize-recover=all`) |
 | ENABLE_TSAN | OFF | ThreadSanitizer |
 | WARNINGS_AS_ERRORS | OFF | `-Werror` (applies to project sources only, not fetched dependencies) |
-| VIDEO2VEC_LOCAL_DEPS_DIR | `deps/` | Where `ci-setup-deps.sh` put whisper.cpp / ONNX Runtime / Tesseract headers |
+| VIDEO2VEC_LOCAL_DEPS_DIR | `deps/` | Where `ci-setup-deps.sh` put whisper.cpp / ONNX Runtime / Tesseract headers (its `VIDEO2VEC_DEPS_DIR`) |
+
+`scripts/ci-setup-deps.sh` reads three environment variables: `VIDEO2VEC_DEPS_DIR` (where dependencies go, default `deps/`), `VIDEO2VEC_DEPS_SANITIZE=thread` (build whisper.cpp with ThreadSanitizer and without OpenMP) and `VIDEO2VEC_WITH_FAISS=1` (also build FAISS from its pin; needs `libopenblas-dev`).
 
 ## Tests
 
@@ -88,6 +90,27 @@ Sanitizer runs, as in CI:
 cmake -B build_asan -DENABLE_ASAN=ON -DENABLE_UBSAN=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_BENCHMARKS=OFF
 cmake --build build_asan
 LSAN_OPTIONS=suppressions=$PWD/scripts/asan.supp ctest --test-dir build_asan --output-on-failure -E sdk_consumer
+```
+
+ThreadSanitizer needs whisper.cpp instrumented too, in its own dependency tree, and on kernels that randomize mmap with 32 bits (Ubuntu 24.04) a lower setting:
+
+```bash
+VIDEO2VEC_DEPS_DIR=$PWD/deps/tsan VIDEO2VEC_DEPS_SANITIZE=thread scripts/ci-setup-deps.sh
+sudo sysctl vm.mmap_rnd_bits=28
+cmake -B build_tsan -DENABLE_TSAN=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_BENCHMARKS=OFF \
+    -DVIDEO2VEC_LOCAL_DEPS_DIR=$PWD/deps/tsan
+cmake --build build_tsan
+TSAN_OPTIONS=suppressions=$PWD/scripts/tsan.supp ctest --test-dir build_tsan --output-on-failure -E sdk_consumer
+```
+
+The whisper inference tests (`real_backends`, `e2e`, `cli_smoke`) take over 30 minutes under TSan; CI runs them only nightly and skips them on pull requests.
+
+FAISS, as in CI:
+
+```bash
+sudo apt-get install -y libopenblas-dev
+VIDEO2VEC_WITH_FAISS=1 scripts/ci-setup-deps.sh
+cmake -B build_faiss -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$PWD/deps/faiss-install
 ```
 
 ## Install
