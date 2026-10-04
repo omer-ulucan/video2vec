@@ -41,8 +41,10 @@ if(ENABLE_ASAN AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 if(ENABLE_UBSAN AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-fsanitize=undefined)
-    add_link_options(-fsanitize=undefined)
+    # Without -fno-sanitize-recover, UBSan prints a report and carries on, so
+    # a test with undefined behaviour still passes.
+    add_compile_options(-fsanitize=undefined -fno-sanitize-recover=all)
+    add_link_options(-fsanitize=undefined -fno-sanitize-recover=all)
 endif()
 
 if(ENABLE_TSAN AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
