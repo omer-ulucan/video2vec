@@ -10,6 +10,9 @@
 # against the SHA-256 pinned in deps.lock before it is unpacked or used.
 # Unpacked trees record the pin they came from and are replaced (with their
 # builds) when it changes, so nothing in deps/ predates the current lock.
+#
+# Environment:
+#   VIDEO2VEC_WITH_FAISS     1 also builds FAISS (default: 0).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,6 +23,15 @@ MODELS_DIR="${ROOT_DIR}/tests/models"
 
 # shellcheck source=deps/lock.sh
 . "${SCRIPT_DIR}/deps/lock.sh"
+
+# Reject unknown settings before any work, rather than silently ignoring them.
+case "${VIDEO2VEC_WITH_FAISS:-0}" in
+    0 | 1) ;;
+    *)
+        echo "ERROR: VIDEO2VEC_WITH_FAISS must be 0 or 1" >&2
+        exit 2
+        ;;
+esac
 
 mkdir -p "${DEPS_DIR}" "${DOWNLOADS_DIR}" "${MODELS_DIR}"
 
@@ -101,6 +113,38 @@ if [[ ! -f "${DEPS_DIR}/leptonica-build/src/libleptonica.a" ]]; then
     ls -la "${DEPS_DIR}/leptonica-build/src/" 2>/dev/null || true
 else
     echo "--- leptonica already built ---"
+fi
+
+# ------------------------------------------------------------------
+# FAISS (only with VIDEO2VEC_WITH_FAISS=1): the optional FAISS-backed index.
+# Needs BLAS and LAPACK (libopenblas-dev on Ubuntu) and OpenMP.
+# ------------------------------------------------------------------
+if [[ "${VIDEO2VEC_WITH_FAISS:-0}" == 1 ]]; then
+    FAISS_DIR="${DEPS_DIR}/faiss-$(deps_lock_field faiss version)"
+    if ! deps_is_current faiss "${FAISS_DIR}"; then
+        echo "--- Unpacking FAISS ---"
+        rm -rf "${DEPS_DIR}/faiss-build" "${DEPS_DIR}/faiss-install"
+        deps_unpack faiss "${DOWNLOADS_DIR}" "${FAISS_DIR}" --strip-components=1
+    fi
+    if ! compgen -G "${DEPS_DIR}/faiss-install/lib*/libfaiss.so" > /dev/null; then
+        echo "--- Building FAISS ---"
+        # FAISS_OPT_LEVEL=generic: no CPU-specific code, because the build is
+        # cached across runners with different CPUs (see GGML_NATIVE above).
+        cmake -S "${FAISS_DIR}" -B "${DEPS_DIR}/faiss-build" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON \
+            -DBUILD_TESTING=OFF \
+            -DFAISS_ENABLE_GPU=OFF \
+            -DFAISS_ENABLE_PYTHON=OFF \
+            -DFAISS_ENABLE_C_API=OFF \
+            -DFAISS_ENABLE_EXTRAS=OFF \
+            -DFAISS_OPT_LEVEL=generic \
+            -DBLA_VENDOR=OpenBLAS
+        cmake --build "${DEPS_DIR}/faiss-build" --parallel "$(nproc)"
+        cmake --install "${DEPS_DIR}/faiss-build" --prefix "${DEPS_DIR}/faiss-install"
+    else
+        echo "--- FAISS already built ---"
+    fi
 fi
 
 # ------------------------------------------------------------------

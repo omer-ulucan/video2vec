@@ -26,6 +26,7 @@ onnxruntime    1.18.0   fa4d11b3fa1b2bf1c3b2efa8f958634bc34edc95e351ac2a0408c6ad
 whisper.cpp    1.7.2    d48e1b5b6ee18b931e98ac791eba838f83eb3b81bb8917db37fe9a79fa5e3ccb  https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.7.2.tar.gz
 tesseract      5.5.2    6235ea0dae45ea137f59c09320406f5888383741924d98855bd2ce0d16b54f21  https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.2.tar.gz
 leptonica      1.87.0   c73363397f96eb1295602bf44d708a994ad42046c791bf03ea0505d829bdb6a7  https://github.com/DanBloomberg/leptonica/releases/download/1.87.0/leptonica-1.87.0.tar.gz
+faiss          1.15.1   7b583010cc3c0a778b909a1beecbc5a4bd42f415d82af734b2c05d5eaaca0ffa  https://github.com/facebookresearch/faiss/archive/refs/tags/v1.15.1.tar.gz
 
 # Test model (Hugging Face, pinned to repository commit 5359861c)
 ggml-tiny      5359861c be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21  https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-tiny.bin
