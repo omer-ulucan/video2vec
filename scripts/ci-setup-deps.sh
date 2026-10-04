@@ -12,12 +12,17 @@
 # builds) when it changes, so nothing in deps/ predates the current lock.
 #
 # Environment:
+#   VIDEO2VEC_DEPS_DIR       where dependencies go (default: <repo>/deps); pass
+#                            the same path to CMake as VIDEO2VEC_LOCAL_DEPS_DIR.
+#   VIDEO2VEC_DEPS_SANITIZE  "thread" builds whisper.cpp/ggml with
+#                            ThreadSanitizer and without OpenMP, for TSan builds
+#                            (default: no sanitizer).
 #   VIDEO2VEC_WITH_FAISS     1 also builds FAISS (default: 0).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-DEPS_DIR="${ROOT_DIR}/deps"
+DEPS_DIR="${VIDEO2VEC_DEPS_DIR:-${ROOT_DIR}/deps}"
 DOWNLOADS_DIR="${DEPS_DIR}/downloads"
 MODELS_DIR="${ROOT_DIR}/tests/models"
 
@@ -25,6 +30,13 @@ MODELS_DIR="${ROOT_DIR}/tests/models"
 . "${SCRIPT_DIR}/deps/lock.sh"
 
 # Reject unknown settings before any work, rather than silently ignoring them.
+case "${VIDEO2VEC_DEPS_SANITIZE:-}" in
+    "" | thread) ;;
+    *)
+        echo "ERROR: VIDEO2VEC_DEPS_SANITIZE must be empty or 'thread'" >&2
+        exit 2
+        ;;
+esac
 case "${VIDEO2VEC_WITH_FAISS:-0}" in
     0 | 1) ;;
     *)
@@ -48,8 +60,21 @@ if ! deps_is_current whisper.cpp "${DEPS_DIR}/whisper-src"; then
     deps_unpack whisper.cpp "${DOWNLOADS_DIR}" "${DEPS_DIR}/whisper-src" --strip-components=1
 fi
 WHISPER_LIB="${DEPS_DIR}/whisper-build/src/libwhisper"
+WHISPER_EXTRA_ARGS=()
+if [[ "${VIDEO2VEC_DEPS_SANITIZE:-}" == thread ]]; then
+    # TSan only sees synchronization in instrumented code, and OpenMP's runtime
+    # (libgomp) is not instrumented, so ggml uses its own threads.
+    WHISPER_EXTRA_ARGS=(-DGGML_OPENMP=OFF -DGGML_SANITIZE_THREAD=ON -DWHISPER_SANITIZE_THREAD=ON)
+fi
+# The build records its flavor (compiler and extra options); a build without
+# that record, or of another flavor, is redone.
+WHISPER_FLAVOR="cc=${CC:-cc} ${WHISPER_EXTRA_ARGS[*]+${WHISPER_EXTRA_ARGS[*]}}"
+WHISPER_FLAVOR_FILE="${DEPS_DIR}/whisper-build/.video2vec-flavor"
+if [[ "$(cat "${WHISPER_FLAVOR_FILE}" 2> /dev/null)" != "${WHISPER_FLAVOR}" ]]; then
+    rm -rf "${DEPS_DIR}/whisper-build"
+fi
 if [[ ! -f "${WHISPER_LIB}.a" && ! -f "${WHISPER_LIB}.so" ]]; then
-    echo "--- Building whisper.cpp ---"
+    echo "--- Building whisper.cpp (${WHISPER_FLAVOR}) ---"
     # GGML_NATIVE=OFF: ggml otherwise compiles with -march=native and ignores the
     # GGML_AVX* flags below. The build is cached across CI runners with different
     # CPUs, so a native build crashes with SIGILL when restored on an older one.
@@ -64,8 +89,10 @@ if [[ ! -f "${WHISPER_LIB}.a" && ! -f "${WHISPER_LIB}.so" ]]; then
         -DGGML_AVX2=OFF \
         -DGGML_FMA=OFF \
         -DGGML_F16C=OFF \
-        -DGGML_AVX512=OFF
+        -DGGML_AVX512=OFF \
+        ${WHISPER_EXTRA_ARGS[@]+"${WHISPER_EXTRA_ARGS[@]}"} # empty-array safe on bash 3.2
     cmake --build "${DEPS_DIR}/whisper-build" --parallel "$(nproc)"
+    printf '%s\n' "${WHISPER_FLAVOR}" > "${WHISPER_FLAVOR_FILE}"
     echo "--- whisper.cpp build complete ---"
     ls -la "${DEPS_DIR}/whisper-build/src/"
 else
