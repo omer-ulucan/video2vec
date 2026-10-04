@@ -22,6 +22,16 @@ on:
 # No token permissions unless a job asks for them.
 permissions: {}
 
+# A new push to a pull request cancels its older runs. Every other run (push,
+# nightly, manual) gets a group of its own: GitHub keeps only one pending run
+# per group, so a shared group for main would cancel queued pushes while the
+# nightly run is going.
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{ github.event_name == 'pull_request'
+    && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Licensing gate: every file must declare its copyright and license
   # (SPDX headers, or REUSE.toml for files that cannot hold comments).
