@@ -60,6 +60,17 @@ if(BUILD_CLI)
     set_tests_properties(cli_smoke PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
 endif()
 
+# Whisper inference runs 10-20 times slower under ThreadSanitizer (real_backends
+# takes about 20 minutes on a CI runner), so under TSan the tests that run it
+# get an hour. Other builds keep their limits.
+if(ENABLE_TSAN)
+    set(_tsan_inference_tests real_backends e2e)
+    if(BUILD_CLI)
+        list(APPEND _tsan_inference_tests cli_smoke)
+    endif()
+    set_tests_properties(${_tsan_inference_tests} PROPERTIES TIMEOUT 3600)
+endif()
+
 # Dependency pinning: downloads are checked against deps.lock before use.
 # Offline (file:// URLs), so it runs in every build.
 add_test(NAME deps_fetch
