@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2025-2026 Ömer Ulucan
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Every file the build scripts, CMake and CI download from a URL, pinned by
+# SHA-256. Readers: scripts/deps/lock.sh (shell) and cmake/DepsLock.cmake
+# (FetchContent). Nothing listed here is used without being checked first.
+# Pinned elsewhere, in their own formats: Python packages in
+# scripts/deps/requirements-*.txt (pip --require-hashes) and the reuse
+# container image by digest in .github/workflows/ci.yml.
+#
+# Format: one entry per line, whitespace-separated:
+#     <name> <version> <sha256> <url>
+# Names are unique, URLs are HTTPS, and no line may contain a semicolon or a
+# square bracket (CMake would misread it). The version names the unpacked
+# directory where one exists, for example deps/tesseract-<version>.
+#
+# To change a pin, update version, URL and hash together in one commit. Hashes
+# come from the publisher where it publishes one (GitHub release asset digest,
+# Hugging Face LFS object id), otherwise from the first download. The deps-lock
+# CI job downloads every entry on every run, which catches a changed upstream
+# file but is not an independent source.
+
+# Native libraries built or unpacked by scripts/ci-setup-deps.sh
+onnxruntime    1.18.0   fa4d11b3fa1b2bf1c3b2efa8f958634bc34edc95e351ac2a0408c6ad5c5504f0  https://github.com/microsoft/onnxruntime/releases/download/v1.18.0/onnxruntime-linux-x64-1.18.0.tgz
+whisper.cpp    1.7.2    d48e1b5b6ee18b931e98ac791eba838f83eb3b81bb8917db37fe9a79fa5e3ccb  https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.7.2.tar.gz
+tesseract      5.5.2    6235ea0dae45ea137f59c09320406f5888383741924d98855bd2ce0d16b54f21  https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.2.tar.gz
+leptonica      1.87.0   c73363397f96eb1295602bf44d708a994ad42046c791bf03ea0505d829bdb6a7  https://github.com/DanBloomberg/leptonica/releases/download/1.87.0/leptonica-1.87.0.tar.gz
+
+# Test model (Hugging Face, pinned to repository commit 5359861c)
+ggml-tiny      5359861c be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21  https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-tiny.bin
+
+# CMake FetchContent fallbacks, used when no system package is found
+spdlog         1.14.1   1586508029a7d0670dfcb2d97575dcdc242d3868a259742b69f100801ab4e16b  https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz
+nlohmann_json  3.11.3   d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d  https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+yaml-cpp       0.8.0    fbe74bbdcee21d656715688706da3c8becfd946d92cd44705cc6098bb23b3a16  https://github.com/jbeder/yaml-cpp/archive/refs/tags/0.8.0.tar.gz
+cxxopts        3.2.0    9f43fa972532e5df6c5fd5ad0f5bac606cdec541ccaf1732463d8070bbb7f03b  https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.2.0.tar.gz
+googletest     1.14.0   8ad598c73ad796e0d8280b082cebd82a630d73e73cd3c70057938a6501bba5d7  https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
+benchmark      1.8.3    6bc180a57d23d4d9515519f92b0c83d61b05b5bab188961f36ac7b06b0d9e9ce  https://github.com/google/benchmark/archive/refs/tags/v1.8.3.tar.gz
+
+# CI tools (release binaries, installed by .github/workflows/ci.yml)
+actionlint     1.7.12   8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+lychee         0.24.2   1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz

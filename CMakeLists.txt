@@ -32,6 +32,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(GNUInstallDirs)
+# Download pins for the FetchContent fallbacks below (see deps.lock).
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/DepsLock.cmake)
 
 if(ENABLE_ASAN AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
@@ -66,12 +68,7 @@ find_package(spdlog QUIET)
 if(NOT spdlog_FOUND)
     pkg_check_modules(SPDLOG spdlog)
     if(NOT SPDLOG_FOUND)
-        include(FetchContent)
-        FetchContent_Declare(
-            spdlog
-            GIT_REPOSITORY https://github.com/gabime/spdlog.git
-            GIT_TAG v1.14.1
-        )
+        video2vec_fetchcontent_declare(spdlog)
         FetchContent_MakeAvailable(spdlog)
     endif()
 endif()
@@ -80,12 +77,7 @@ find_package(nlohmann_json QUIET)
 if(NOT nlohmann_json_FOUND)
     pkg_check_modules(NLOHMANN_JSON nlohmann_json)
     if(NOT NLOHMANN_JSON_FOUND)
-        include(FetchContent)
-        FetchContent_Declare(
-            nlohmann_json
-            GIT_REPOSITORY https://github.com/nlohmann/json.git
-            GIT_TAG v3.11.3
-        )
+        video2vec_fetchcontent_declare(nlohmann_json)
         FetchContent_MakeAvailable(nlohmann_json)
     endif()
 endif()
@@ -94,24 +86,14 @@ find_package(yaml-cpp QUIET)
 if(NOT yaml-cpp_FOUND)
     pkg_check_modules(YAML_CPP yaml-cpp)
     if(NOT YAML_CPP_FOUND)
-        include(FetchContent)
-        FetchContent_Declare(
-            yaml-cpp
-            GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-            GIT_TAG 0.8.0
-        )
+        video2vec_fetchcontent_declare(yaml-cpp)
         FetchContent_MakeAvailable(yaml-cpp)
     endif()
 endif()
 
 find_package(cxxopts QUIET)
 if(NOT cxxopts_FOUND)
-    include(FetchContent)
-    FetchContent_Declare(
-        cxxopts
-        GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-        GIT_TAG v3.2.0
-    )
+    video2vec_fetchcontent_declare(cxxopts)
     FetchContent_MakeAvailable(cxxopts)
 endif()
 
@@ -160,28 +142,38 @@ if(_WHISPER_LIB)
     message(STATUS "Using local whisper.cpp from ${VIDEO2VEC_LOCAL_DEPS_DIR} (${_WHISPER_LIB})")
 endif()
 
+# Directory names carry the versions pinned in deps.lock, as
+# scripts/ci-setup-deps.sh unpacks them, so a pin change cannot silently
+# fall back to an older tree or to system headers.
+video2vec_locked_version(onnxruntime _VIDEO2VEC_ORT_VERSION)
+video2vec_locked_version(tesseract _VIDEO2VEC_TESSERACT_VERSION)
+video2vec_locked_version(leptonica _VIDEO2VEC_LEPTONICA_VERSION)
+set(_ORT_DIR "${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-${_VIDEO2VEC_ORT_VERSION}")
+set(_TESS_DIR "${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-${_VIDEO2VEC_TESSERACT_VERSION}")
+set(_LEPT_DIR "${VIDEO2VEC_LOCAL_DEPS_DIR}/leptonica-${_VIDEO2VEC_LEPTONICA_VERSION}")
+
 # ONNX Runtime
-if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-1.18.0")
-    set(onnxruntime_ROOT "${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-1.18.0" CACHE PATH "" FORCE)
-    find_library(ONNXRUNTIME_LIB onnxruntime PATHS "${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-1.18.0/lib" NO_DEFAULT_PATH)
+if(EXISTS "${_ORT_DIR}")
+    set(onnxruntime_ROOT "${_ORT_DIR}" CACHE PATH "" FORCE)
+    find_library(ONNXRUNTIME_LIB onnxruntime PATHS "${_ORT_DIR}/lib" NO_DEFAULT_PATH)
     if(ONNXRUNTIME_LIB)
         add_library(onnxruntime::onnxruntime SHARED IMPORTED)
         set_target_properties(onnxruntime::onnxruntime PROPERTIES
             IMPORTED_LOCATION "${ONNXRUNTIME_LIB}"
-            INTERFACE_INCLUDE_DIRECTORIES "${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-1.18.0/include"
+            INTERFACE_INCLUDE_DIRECTORIES "${_ORT_DIR}/include"
         )
-        message(STATUS "Using local ONNX Runtime from ${VIDEO2VEC_LOCAL_DEPS_DIR}/onnxruntime-linux-x64-1.18.0")
+        message(STATUS "Using local ONNX Runtime from ${_ORT_DIR}")
     endif()
 endif()
 
 # Tesseract (headers from source, library from system)
-if(EXISTS "${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/src/api")
+if(EXISTS "${_TESS_DIR}/src/api")
     find_library(_TESSERACT_LIB tesseract NAMES tesseract tesseract.so.5 tesseract.so.5.5 PATH_SUFFIXES lib lib64 x86_64-linux-gnu)
     if(_TESSERACT_LIB)
         add_library(Tesseract::libtesseract SHARED IMPORTED)
         set_target_properties(Tesseract::libtesseract PROPERTIES
             IMPORTED_LOCATION "${_TESSERACT_LIB}"
-            INTERFACE_INCLUDE_DIRECTORIES "${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/include;${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/src/api;${VIDEO2VEC_LOCAL_DEPS_DIR}/tesseract-5.5.2/src/ccutil;${VIDEO2VEC_LOCAL_DEPS_DIR}/leptonica-1.87.0;${VIDEO2VEC_LOCAL_DEPS_DIR}/leptonica-build/src"
+            INTERFACE_INCLUDE_DIRECTORIES "${_TESS_DIR}/include;${_TESS_DIR}/src/api;${_TESS_DIR}/src/ccutil;${_LEPT_DIR};${VIDEO2VEC_LOCAL_DEPS_DIR}/leptonica-build/src"
         )
         message(STATUS "Using system libtesseract with local headers: ${_TESSERACT_LIB}")
     else()

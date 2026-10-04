@@ -20,9 +20,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false # third-party action below needs no token
+          persist-credentials: false # nothing below pushes
       - name: REUSE compliance
-        uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+        # The reuse image pinned by digest (tag 6.2.0): reuse-action builds from
+        # the floating tag fsfe/reuse:6, which can change under the same pin.
+        env:
+          REUSE_DIGEST: sha256:85462a75c0f8efda09ddd190b92816b70e7662577c8427429e11e1b9f25a992e
+        run: |
+          docker run --rm --volume "$PWD:/data" --workdir /data --entrypoint sh \
+            "fsfe/reuse:6.2.0@${REUSE_DIGEST}" \
+            -c 'git config --global --add safe.directory /data && reuse lint'
 
   # Documentation gate: relative links and in-page anchors in Markdown must
   # resolve. Offline mode keeps the job deterministic (no network flakiness).
@@ -33,11 +40,21 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false # third-party action below needs no token
+          persist-credentials: false # nothing below pushes
+      - name: Install lychee
+        # Pinned in deps.lock and checked by deps_unpack (lychee-action
+        # downloads it without a check).
+        run: |
+          . scripts/deps/lock.sh
+          deps_unpack lychee "$RUNNER_TEMP/downloads" "$RUNNER_TEMP/lychee"
+          # Releases put the binary at the top level or in one lychee-* folder.
+          bin="$RUNNER_TEMP/lychee/lychee"
+          [[ -x "$bin" ]] || bin="$(echo "$RUNNER_TEMP"/lychee/lychee-*/lychee)"
+          test -x "$bin"
+          echo "LYCHEE=$bin" >> "$GITHUB_ENV"
       - name: Check Markdown links
-        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
-        with:
-          args: --offline --include-fragments --no-progress './*.md' 'docs/**/*.md'
+        run: |
+          "$LYCHEE" --offline --include-fragments --no-progress './*.md' 'docs/**/*.md'
 
   # YAML and workflow gate: yamllint checks every YAML file (workflows, issue
   # forms) against .yamllint.yaml; actionlint type-checks workflows, including
@@ -50,26 +67,38 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false # nothing below pushes
-      - name: yamllint
-        run: pipx run --spec yamllint==1.38.0 yamllint --strict --format github .
-      - name: Install actionlint
-        # Pinned release, verified against the SHA-256 published with it.
-        env:
-          ACTIONLINT_VERSION: 1.7.12
-          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+      - name: Install yamllint
         run: |
-          cd "$RUNNER_TEMP"
-          base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
-          curl -fsSL --retry 3 -o actionlint.tar.gz \
-            "${base}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
-          tar -xzf actionlint.tar.gz actionlint
+          python3 -m venv "$RUNNER_TEMP/lint-venv"
+          "$RUNNER_TEMP/lint-venv/bin/pip" install --require-hashes \
+            -r scripts/deps/requirements-lint.txt
+      - name: yamllint
+        run: |
+          "$RUNNER_TEMP/lint-venv/bin/yamllint" --strict --format github .
+      - name: Install actionlint
+        # Pinned in deps.lock and checked by deps_unpack.
+        run: |
+          . scripts/deps/lock.sh
+          deps_unpack actionlint "$RUNNER_TEMP/downloads" "$RUNNER_TEMP/actionlint"
       - name: actionlint
         run: |
-          "$RUNNER_TEMP/actionlint" -color
+          "$RUNNER_TEMP/actionlint/actionlint" -color
+
+  # Supply-chain gate: every deps.lock pin must still match what its URL
+  # serves, including FetchContent fallbacks that the build jobs never fetch.
+  deps-lock:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # nothing below pushes
+      - name: Verify every deps.lock entry
+        run: scripts/deps/verify-lock.sh
 
   build-linux-gcc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # the hashed Python wheels are for its CPython 3.12
     steps:
       - uses: actions/checkout@v4
       - name: Install system dependencies
@@ -78,24 +107,35 @@ jobs:
           sudo apt-get install -y cmake build-essential libavcodec-dev libavformat-dev \
             libavutil-dev libswscale-dev libswresample-dev \
             nlohmann-json3-dev libvips-dev libtesseract-dev tesseract-ocr-eng \
-            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git wget ffmpeg
+            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git ffmpeg
       - name: Install Python dependencies
-        run: pip3 install onnx numpy protobuf
+        run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
       - name: Cache custom dependencies
         uses: actions/cache@v4
         with:
           path: |
-            deps/whisper-build
-            deps/whisper-src
-            deps/onnxruntime-linux-x64-1.18.0
-            deps/tesseract-5.5.2
-            deps/leptonica-build
-            deps/leptonica-1.87.0
+            deps
+            !deps/downloads
             tests/models
             tests/data
-          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/ci-setup-deps.sh') }}
+          key: >-
+            ${{ runner.os }}-deps-${{ hashFiles('deps.lock', 'scripts/ci-setup-deps.sh',
+            'scripts/deps/**') }}
       - name: Setup custom dependencies
         run: scripts/ci-setup-deps.sh
+      - name: A corrupted download stops the setup
+        # Build-level proof behind deps.lock: with everything else in place, a
+        # damaged copy of the cached whisper model must fail the setup.
+        run: |
+          model=tests/models/ggml-tiny.bin
+          cp "$model" "$RUNNER_TEMP/model.bak"
+          printf 'x' >> "$model"
+          if scripts/ci-setup-deps.sh > "$RUNNER_TEMP/setup.log" 2>&1; then
+            echo "the setup accepted a corrupted model"
+            exit 1
+          fi
+          grep 'checksum mismatch' "$RUNNER_TEMP/setup.log"
+          mv "$RUNNER_TEMP/model.bak" "$model"
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
       - name: Build
@@ -104,7 +144,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   build-linux-clang:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # the hashed Python wheels are for its CPython 3.12
     steps:
       - uses: actions/checkout@v4
       - name: Install system dependencies
@@ -113,22 +153,20 @@ jobs:
           sudo apt-get install -y cmake clang libavcodec-dev libavformat-dev \
             libavutil-dev libswscale-dev libswresample-dev \
             nlohmann-json3-dev libvips-dev libtesseract-dev tesseract-ocr-eng \
-            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git wget ffmpeg
+            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git ffmpeg
       - name: Install Python dependencies
-        run: pip3 install onnx numpy protobuf
+        run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
       - name: Cache custom dependencies
         uses: actions/cache@v4
         with:
           path: |
-            deps/whisper-build
-            deps/whisper-src
-            deps/onnxruntime-linux-x64-1.18.0
-            deps/tesseract-5.5.2
-            deps/leptonica-build
-            deps/leptonica-1.87.0
+            deps
+            !deps/downloads
             tests/models
             tests/data
-          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/ci-setup-deps.sh') }}
+          key: >-
+            ${{ runner.os }}-deps-${{ hashFiles('deps.lock', 'scripts/ci-setup-deps.sh',
+            'scripts/deps/**') }}
       - name: Setup custom dependencies
         run: scripts/ci-setup-deps.sh
       - name: Configure
@@ -141,7 +179,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   sanitize:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # the hashed Python wheels are for its CPython 3.12
     env:
       ASAN_OPTIONS: detect_leaks=1
       LSAN_OPTIONS: suppressions=${{ github.workspace }}/scripts/asan.supp
@@ -153,22 +191,20 @@ jobs:
           sudo apt-get install -y cmake build-essential libavcodec-dev libavformat-dev \
             libavutil-dev libswscale-dev libswresample-dev \
             nlohmann-json3-dev libtesseract-dev tesseract-ocr-eng libleptonica-dev \
-            libgtest-dev python3-pip git wget ffmpeg
+            libgtest-dev python3-pip git ffmpeg
       - name: Install Python dependencies
-        run: pip3 install onnx numpy protobuf
+        run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
       - name: Cache custom dependencies
         uses: actions/cache@v4
         with:
           path: |
-            deps/whisper-build
-            deps/whisper-src
-            deps/onnxruntime-linux-x64-1.18.0
-            deps/tesseract-5.5.2
-            deps/leptonica-build
-            deps/leptonica-1.87.0
+            deps
+            !deps/downloads
             tests/models
             tests/data
-          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/ci-setup-deps.sh') }}
+          key: >-
+            ${{ runner.os }}-deps-${{ hashFiles('deps.lock', 'scripts/ci-setup-deps.sh',
+            'scripts/deps/**') }}
       - name: Setup custom dependencies
         run: scripts/ci-setup-deps.sh
       - name: Configure ASan

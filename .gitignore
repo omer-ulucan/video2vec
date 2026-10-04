@@ -75,8 +75,8 @@ generated/
 # Artifacts
 artifacts/
 
-# Local dependency builds
-deps/
+# Local dependency builds (root only: scripts/deps/ and tests/deps/ are tracked)
+/deps/
 
 # Test artifacts
 tests/data/
