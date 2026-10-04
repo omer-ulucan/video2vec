@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
+# Continuous integration for every pull request and every push to main:
+# licensing, documentation links, YAML and workflow lint, the deps.lock pins,
+# and the build and test matrix.
 name: CI
 
 on:
@@ -9,6 +12,9 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+
+# No token permissions unless a job asks for them.
+permissions: {}
 
 jobs:
   # Licensing gate: every file must declare its copyright and license
