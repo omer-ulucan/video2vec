@@ -97,33 +97,81 @@ jobs:
       - name: Verify every deps.lock entry
         run: scripts/deps/verify-lock.sh
 
-  build-linux-gcc:
+  # Build and test matrix; every leg treats compiler warnings as errors.
+  #   gcc, clang   Release builds running every test; gcc also proves that a
+  #                corrupted download stops the dependency setup.
+  #   asan-ubsan   AddressSanitizer and UndefinedBehaviorSanitizer, Debug.
+  #   tsan         ThreadSanitizer, Debug.
+  #   faiss        Release with FAISS built from its deps.lock pin, so the
+  #                FAISS-backed index is compiled and tested as well.
+  build:
+    name: build (${{ matrix.name }})
     runs-on: ubuntu-24.04 # the hashed Python wheels are for its CPython 3.12
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gcc
+            cc: gcc
+            cxx: g++
+            cmake-args: -DCMAKE_BUILD_TYPE=Release
+            check-setup: true
+          - name: clang
+            cc: clang
+            cxx: clang++
+            packages: clang
+            cmake-args: -DCMAKE_BUILD_TYPE=Release
+          - name: asan-ubsan
+            cc: gcc
+            cxx: g++
+            cmake-args: >-
+              -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DENABLE_UBSAN=ON
+              -DBUILD_BENCHMARKS=OFF
+            # The SDK consumer tests install and rebuild outside the sanitizer.
+            ctest-args: -E ^sdk_consumer_
+          - name: tsan
+            # GCC, the compiler scripts/ci-setup-deps.sh builds the
+            # instrumented whisper.cpp with, so one TSan runtime is linked.
+            cc: gcc
+            cxx: g++
+            # whisper.cpp built with TSan in its own dependency tree.
+            sanitize: thread
+            deps-dir: deps/tsan
+            cmake-args: -DCMAKE_BUILD_TYPE=Debug -DENABLE_TSAN=ON -DBUILD_BENCHMARKS=OFF
+            # Whisper inference under TSan takes over 30 minutes, so this leg
+            # skips those three tests.
+            ctest-args: -E ^(sdk_consumer_.*|real_backends|e2e|cli_smoke)$
+          - name: faiss
+            cc: gcc
+            cxx: g++
+            packages: libopenblas-dev
+            faiss: true
+            # scripts/ci-setup-deps.sh installs FAISS under the deps directory.
+            cmake-args: -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/deps/faiss-install"
+    env:
+      ASAN_OPTIONS: detect_leaks=1
+      LSAN_OPTIONS: suppressions=${{ github.workspace }}/scripts/asan.supp
+      UBSAN_OPTIONS: print_stacktrace=1
+      TSAN_OPTIONS: >-
+        second_deadlock_stack=1
+        suppressions=${{ github.workspace }}/scripts/tsan.supp
+      CCACHE_MAXSIZE: 500M
     steps:
-      - uses: actions/checkout@v4
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential libavcodec-dev libavformat-dev \
-            libavutil-dev libswscale-dev libswresample-dev \
-            nlohmann-json3-dev libvips-dev libtesseract-dev tesseract-ocr-eng \
-            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git ffmpeg
-      - name: Install Python dependencies
-        run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
-      - name: Cache custom dependencies
-        uses: actions/cache@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: |
-            deps
-            !deps/downloads
-            tests/models
-            tests/data
-          key: >-
-            ${{ runner.os }}-deps-${{ hashFiles('deps.lock', 'scripts/ci-setup-deps.sh',
-            'scripts/deps/**') }}
-      - name: Setup custom dependencies
-        run: scripts/ci-setup-deps.sh
+          persist-credentials: false # nothing below pushes
+      - name: Set up build dependencies
+        uses: ./.github/actions/build-deps
+        with:
+          extra-packages: ${{ matrix.packages }}
+          faiss: ${{ matrix.faiss || false }}
+          sanitize: ${{ matrix.sanitize }}
+          deps-dir: ${{ matrix.deps-dir || 'deps' }}
       - name: A corrupted download stops the setup
+        if: matrix.check-setup
         # Build-level proof behind deps.lock: with everything else in place, a
         # damaged copy of the cached whisper model must fail the setup.
         run: |
@@ -136,86 +184,42 @@ jobs:
           fi
           grep 'checksum mismatch' "$RUNNER_TEMP/setup.log"
           mv "$RUNNER_TEMP/model.bak" "$model"
-      - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
-      - name: Build
-        run: cmake --build build --parallel "$(nproc)"
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
-
-  build-linux-clang:
-    runs-on: ubuntu-24.04 # the hashed Python wheels are for its CPython 3.12
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake clang libavcodec-dev libavformat-dev \
-            libavutil-dev libswscale-dev libswresample-dev \
-            nlohmann-json3-dev libvips-dev libtesseract-dev tesseract-ocr-eng \
-            libleptonica-dev libgtest-dev libbenchmark-dev python3-pip git ffmpeg
-      - name: Install Python dependencies
-        run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
-      - name: Cache custom dependencies
-        uses: actions/cache@v4
+      - name: Allow ThreadSanitizer's memory layout
+        if: matrix.sanitize == 'thread'
+        # Ubuntu 24.04 kernels randomize mmap addresses with 32 bits, which
+        # ThreadSanitizer's fixed shadow layout rejects ("unexpected memory
+        # mapping"); 28 bits is the value it supports.
+        run: sudo sysctl vm.mmap_rnd_bits=28
+      - name: Restore the compiler cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            deps
-            !deps/downloads
-            tests/models
-            tests/data
-          key: >-
-            ${{ runner.os }}-deps-${{ hashFiles('deps.lock', 'scripts/ci-setup-deps.sh',
-            'scripts/deps/**') }}
-      - name: Setup custom dependencies
-        run: scripts/ci-setup-deps.sh
+          path: ~/.cache/ccache
+          key: ccache-${{ matrix.name }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.name }}-
       - name: Configure
         run: >-
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake -B build ${{ matrix.cmake-args }} -DWARNINGS_AS_ERRORS=ON
+          -DVIDEO2VEC_LOCAL_DEPS_DIR="$PWD/${{ matrix.deps-dir || 'deps' }}"
+          -DCMAKE_C_COMPILER=${{ matrix.cc }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: FAISS is used
+        if: matrix.faiss
+        # Without this the leg could silently build the exact-scan fallback.
+        run: grep -q -- '-DHAS_FAISS=1' build/compile_commands.json
       - name: Build
-        run: cmake --build build --parallel "$(nproc)"
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
-
-  sanitize:
-    runs-on: ubuntu-24.04 # the hashed Python wheels are for its CPython 3.12
-    env:
-      ASAN_OPTIONS: detect_leaks=1
-      LSAN_OPTIONS: suppressions=${{ github.workspace }}/scripts/asan.supp
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install system dependencies
+        # Statistics are zeroed first so the last step shows this run's hit rate.
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential libavcodec-dev libavformat-dev \
-            libavutil-dev libswscale-dev libswresample-dev \
-            nlohmann-json3-dev libtesseract-dev tesseract-ocr-eng libleptonica-dev \
-            libgtest-dev python3-pip git ffmpeg
-      - name: Install Python dependencies
-        run: pip3 install --require-hashes -r scripts/deps/requirements-test-models.txt
-      - name: Cache custom dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            deps
-            !deps/downloads
-            tests/models
-            tests/data
-          key: >-
-            ${{ runner.os }}-deps-${{ hashFiles('deps.lock', 'scripts/ci-setup-deps.sh',
-            'scripts/deps/**') }}
-      - name: Setup custom dependencies
-        run: scripts/ci-setup-deps.sh
-      - name: Configure ASan
-        run: cmake -B build -DENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_BENCHMARKS=OFF
-      - name: Build ASan
-        run: cmake --build build --parallel "$(nproc)"
-      - name: Test ASan
-        run: ctest --test-dir build --output-on-failure -E "sdk_consumer"
-      - name: Configure UBSan
-        run: cmake -B build_ub -DENABLE_UBSAN=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_BENCHMARKS=OFF
-      - name: Build UBSan
-        run: cmake --build build_ub --parallel "$(nproc)"
-      - name: Test UBSan
-        run: ctest --test-dir build_ub --output-on-failure -E "sdk_consumer"
+          ccache --zero-stats
+          cmake --build build --parallel "$(nproc)"
+      - name: Test
+        env:
+          CTEST_ARGS: ${{ matrix.ctest-args }}
+        # CTEST_ARGS is a word list (options and a regex without spaces), so it
+        # is split on purpose; set -f keeps the regex from being globbed.
+        run: |
+          set -f
+          # shellcheck disable=SC2086
+          ctest --test-dir build --output-on-failure ${CTEST_ARGS}
+      - name: Compiler cache statistics
+        run: ccache --show-stats
+
