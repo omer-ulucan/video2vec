@@ -8,6 +8,18 @@
 
 video2vec is for developers who build search, question answering or retrieval-augmented generation over recorded lectures, talks and tutorials. It extracts what a video says and shows: the full speech transcript with word timings, the text on screen with its position, and visual embeddings. Words, frames and embeddings carry millisecond timestamps on the media timeline, and on-screen text is placed by the window it was read in, so an answer can point back to the moment it came from. It is a C++20 library and command-line toolset built on FFmpeg, whisper.cpp, Tesseract and ONNX Runtime, with no Python at run time.
 
+## Python Package
+
+You can install `video2vec` via pip:
+
+```bash
+pip install video2vec
+```
+
+This package provides a Python interface to the core `video2vec` functionality, allowing you to integrate video processing directly into your Python applications.
+
+> **Note:** The Python package currently supports CPU-only execution.
+
 The design goal is **no summarization and no information loss**: video2vec keeps what the engines produce instead of condensing it. Today nothing is summarized, but frames and image patches are sampled and the LLM export cuts long transcripts by default; removing those losses is the main work of 0.3.0 (see [Known limitations](#known-limitations-02x)).
 
 > **Project stage:** 0.x. The pipeline works end to end and is tested in CI, but it is not production-ready yet and the API is not frozen. The [roadmap](#roadmap) leads to a stable 1.0 with a C ABI, a query/MCP server, vector-database integrations and a Python package.
@@ -34,7 +46,7 @@ What exists in the current release (0.2.x), how mature it is, and when the rest 
 | C ABI | Planned | — | Stable, append-only C ABI (0.4.0) |
 | Query server / MCP | Planned | — | MCP (stdio and HTTP) and REST server with auth and TLS (0.7.0) |
 | Vector databases | Planned | — | Qdrant and Milvus stores (0.7.0) |
-| Python | Planned | — | `pip install video2vec`, CPU (0.9.0) |
+| Python | Beta | `pip install video2vec` | Python package (CPU) |
 
 ### Known limitations (0.2.x)
 
@@ -68,9 +80,9 @@ git clone https://github.com/omer-ulucan/video2vec.git
 cd video2vec
 
 sudo apt-get update
-sudo apt-get install -y cmake build-essential pkg-config git curl ffmpeg \
-    libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
-    libtesseract-dev tesseract-ocr-eng libleptonica-dev libvips-dev \
+sudo apt-get install -y cmake build-essential pkg-config git curl ffmpeg \\\
+    libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \\\
+    libtesseract-dev tesseract-ocr-eng libleptonica-dev libvips-dev \\\
     nlohmann-json3-dev libgtest-dev libbenchmark-dev python3-venv
 
 # Python generates the tiny ONNX test models and checks the CLI smoke test's JSON;
@@ -83,7 +95,7 @@ pip install --require-hashes -r scripts/deps/requirements-test-models.txt
 scripts/ci-setup-deps.sh
 
 cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
-cmake --build build --parallel "$(nproc)"
+cmake --build build --parallel \"$(nproc)\"
 ctest --test-dir build --output-on-failure
 ```
 
@@ -92,7 +104,7 @@ Process the generated sample video with the tiny test models and turn the result
 ```bash
 # Transcript (whisper), on-screen text (Tesseract) and visual patch embeddings
 # (ONNX image model), in 45 s windows with 5 s overlap
-./build/src/cli/video2vec --in tests/data/sample_video.mp4 --out build/sample.vec \
+./build/src/cli/video2vec --in tests/data/sample_video.mp4 --out build/sample.vec \\\
     --whisper-model tests/models/ggml-tiny.bin --embedding-model tests/models/tiny_image.onnx
 
 # Transcript and on-screen text per window as Markdown (or json / text) for an LLM prompt
@@ -145,8 +157,8 @@ Details and progress: [docs/ROADMAP.md](docs/ROADMAP.md) and the [milestones](ht
 
 ```bash
 ctest --test-dir build --output-on-failure                                    # everything
-ctest --test-dir build -R "core|ffmpeg|vision|packager|index|sync|windowing"  # unit suites
-ctest --test-dir build -R "pipeline|real_backends|e2e"                        # integration
+ctest --test-dir build -R \"core|ffmpeg|vision|packager|index|sync|windowing\"  # unit suites
+ctest --test-dir build -R \"pipeline|real_backends|e2e\"                        # integration
 ctest --test-dir build -R cli_smoke                                           # CLI end to end
 ```
 
@@ -160,7 +172,7 @@ CI builds and tests with GCC and Clang, then runs the suite again under AddressS
 
 - [Contributing guide](docs/CONTRIBUTING.md): workflow, commit conventions and merge gates.
 - [Security policy](SECURITY.md): report vulnerabilities privately, never in a public issue.
-- [Support](SUPPORT.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+- [Support](SUPPORT.md) and the [Code of Conduct](docs/CODE_OF_CONDUCT.md).
 
 ## License
 
